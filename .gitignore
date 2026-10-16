@@ -25,6 +25,7 @@ docs/source/generated/
 docs/build/
 cache/
 policies/
+!tools/c7n_ibmcloud/policies/
 local/
 *~
 share/
@@ -62,3 +63,6 @@ venv*/
 
 # files generated during "make data-update"
 iam_docs/
+# local custodian run outputs (contain account CRNs / resource data)
+/iks-cluster-eol-version/
+/powervs-ssh-key-empty-description/

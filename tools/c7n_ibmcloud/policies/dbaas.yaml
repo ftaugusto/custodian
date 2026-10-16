@@ -1,0 +1,175 @@
+# DBaaS engine resource types — all share identical filter/action sets.
+# Run this file once per engine by substituting the resource type,
+# or duplicate the policies block for each engine below.
+
+policies:
+
+  # ---------------------------------------------------------------------------
+  # All DBaaS engines:
+  #   ibm.dbaas-postgresql, ibm.dbaas-mysql, ibm.dbaas-mongodb,
+  #   ibm.dbaas-redis, ibm.dbaas-elasticsearch, ibm.dbaas-rabbitmq
+  # ---------------------------------------------------------------------------
+
+  - name: dbaas-postgresql-eol-version
+    description: |
+      MUST — PostgreSQL instances running an EOL version. Update the threshold.
+    resource: ibm.dbaas-postgresql
+    filters:
+      - type: version
+        op: lt
+        value: "15"
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "eol-version"
+
+  - name: dbaas-mysql-eol-version
+    description: |
+      MUST — MySQL instances running an EOL version.
+    resource: ibm.dbaas-mysql
+    filters:
+      - type: version
+        op: lt
+        value: "9.0"
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "eol-version"
+
+  - name: dbaas-mongodb-eol-version
+    description: |
+      MUST — MongoDB instances running an EOL version.
+    resource: ibm.dbaas-mongodb
+    filters:
+      - type: version
+        op: lt
+        value: "8.0"
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "eol-version"
+
+  - name: dbaas-redis-eol-version
+    description: |
+      MUST — Redis instances running an EOL version.
+    resource: ibm.dbaas-redis
+    filters:
+      - type: version
+        op: lt
+        value: "9.0"
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "eol-version"
+
+  - name: dbaas-elasticsearch-eol-version
+    description: |
+      MUST — Elasticsearch instances running an EOL version.
+    resource: ibm.dbaas-elasticsearch
+    filters:
+      - type: version
+        op: lt
+        value: "9.4"
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "eol-version"
+
+  - name: dbaas-rabbitmq-eol-version
+    description: |
+      MUST — RabbitMQ instances running an EOL version.
+    resource: ibm.dbaas-rabbitmq
+    filters:
+      - type: version
+        op: lt
+        value: "4.3"
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "eol-version"
+
+  # --- Cross-engine checks (one per engine) ---
+  # Pattern shown for postgresql; duplicate for each engine as needed.
+
+  - name: dbaas-postgresql-not-running
+    description: |
+      MUST — PostgreSQL instances not in running state.
+    resource: ibm.dbaas-postgresql
+    filters:
+      - type: value
+        key: state
+        op: ne
+        value: running
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "not-running"
+
+  - name: dbaas-postgresql-public-endpoint
+    description: |
+      SHOULD — PostgreSQL instances accessible via a public network endpoint.
+    resource: ibm.dbaas-postgresql
+    filters:
+      - type: value
+        key: service_endpoints
+        op: contains
+        value: public
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "public-endpoint"
+
+  - name: dbaas-postgresql-non-standard-plan
+    description: |
+      SHOULD — PostgreSQL instances on a non-standard (deprecated) plan.
+    resource: ibm.dbaas-postgresql
+    filters:
+      - type: value
+        key: resource_plan_id
+        op: not-in
+        value:
+          - "1071d24b-4089-4161-b679-5e492b450537"
+          - "standard"
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "non-standard-plan"
+
+  - name: dbaas-postgresql-missing-owner-tag
+    description: |
+      MUST — PostgreSQL instances missing a mandatory owner tag.
+    resource: ibm.dbaas-postgresql
+    filters:
+      - type: tag
+        key: owner
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "missing-owner-tag"
+
+  - name: dbaas-postgresql-low-memory
+    description: |
+      CAN — PostgreSQL instances with less than 4096 MB memory (under-provisioned).
+    resource: ibm.dbaas-postgresql
+    filters:
+      - type: value
+        key: resources.memory.allocation_mb
+        op: lt
+        value: 4096
+    actions:
+      - type: scale
+        memory_allocation: 4096
+
+  - name: dbaas-postgresql-wrong-resource-group
+    description: |
+      CAN — PostgreSQL instances not in the expected resource group.
+    resource: ibm.dbaas-postgresql
+    filters:
+      - type: resource-group
+        op: ne
+        value: "approved-resource-group"
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "wrong-resource-group"

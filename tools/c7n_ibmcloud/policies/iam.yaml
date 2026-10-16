@@ -1,0 +1,272 @@
+vars:
+  # Name of the IAM access group users are added to for security review.
+  # Create it first: ibmcloud iam access-group-create custodian-review-group
+  review-group-name: &review-group-name "custodian-review-group"
+
+policies:
+
+  # ---------------------------------------------------------------------------
+  # ibm.iam-user
+  # ---------------------------------------------------------------------------
+
+  - name: iam-user-mfa-disabled
+    description: |
+      MUST — Flag users with MFA not enrolled.
+      Safe action: add to a review access group for operator follow-up.
+    resource: ibm.iam-user
+    filters:
+      - type: mfa-disabled
+    actions:
+      - type: add-to-review-group
+        group_name: custodian-review-group
+        #group_name: *review-group-name
+
+  - name: iam-user-suspended
+    description: |
+      SHOULD — Flag users in a non-ACTIVE state.
+    resource: ibm.iam-user
+    filters:
+      - type: value
+        key: state
+        op: ne
+        value: ACTIVE
+    actions:
+      - type: add-to-review-group
+        group_name: *review-group-name
+
+  - name: iam-user-external-domain
+    description: |
+      CAN — Flag users whose email is from outside the approved org domain.
+      Update the glob pattern to match your external domains.
+    resource: ibm.iam-user
+    filters:
+      - type: value
+        key: email
+        op: glob
+        value: "*@external.com"
+    actions:
+      - type: add-to-review-group
+        group_name: custodian-review-group
+        #group_name: *review-group-name
+
+  # ---------------------------------------------------------------------------
+  # ibm.iam-api-key
+  # ---------------------------------------------------------------------------
+
+  - name: iam-api-key-rotation-overdue
+    description: |
+      MUST — API key older than 180 days. Lock and annotate immediately.
+    resource: ibm.iam-api-key
+    filters:
+      - type: age
+        op: gt
+        days: 180
+    actions:
+      - type: append-description
+        notice: "[custodian] This API key is over 180 days old and requires rotation."
+      - type: lock
+
+  - name: iam-api-key-unlocked-past-rotation-age
+    description: |
+      MUST — Unlocked API key older than 180 days. Lock immediately.
+    resource: ibm.iam-api-key
+    filters:
+      - type: age
+        op: gt
+        days: 180
+      - type: value
+        key: locked
+        value: false
+    actions:
+      - type: append-description
+        notice: "[custodian] This unlocked API key is overdue for rotation."
+      - type: lock
+
+  - name: iam-api-key-root-account-owner
+    description: |
+      MUST — Root/account-owner API keys (iam_id contains IBMid) must be reviewed.
+    resource: ibm.iam-api-key
+    filters:
+      - type: value
+        key: iam_id
+        op: contains
+        value: "IBMid"
+    actions:
+      - type: append-description
+        notice: "[custodian] Root/account-owner API key requires review."
+      - type: lock
+
+  - name: iam-api-key-no-description
+    description: |
+      SHOULD — API keys with no description are unidentifiable.
+    resource: ibm.iam-api-key
+    filters:
+      - type: value
+        key: description
+        op: eq
+        value: ""
+    actions:
+      - type: append-description
+        notice: "[custodian] This API key has no description and requires review."
+
+  # ---------------------------------------------------------------------------
+  # ibm.iam-service-id
+  # ---------------------------------------------------------------------------
+
+  - name: iam-service-id-stale
+    description: |
+      SHOULD — Service ID unused for over 365 days.
+    resource: ibm.iam-service-id
+    filters:
+      - type: age
+        op: gt
+        days: 365
+    actions:
+      - type: mark-for-op
+        op: delete
+        days: 7
+
+  - name: iam-service-id-no-description
+    description: |
+      SHOULD — Service IDs with no description are unidentifiable.
+    resource: ibm.iam-service-id
+    filters:
+      - type: value
+        key: description
+        value: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "missing-description"
+
+  - name: iam-service-id-missing-owner-tag
+    description: |
+      CAN — Service IDs missing an owner tag.
+    resource: ibm.iam-service-id
+    filters:
+      - type: tag
+        key: owner
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "missing-owner-tag"
+
+  - name: iam-service-id-marked-for-op
+    description: |
+      SHOULD — Execute delete on service IDs that have passed their mark-for-op deadline.
+    resource: ibm.iam-service-id
+    filters:
+      - type: marked-for-op
+        op: delete
+    actions:
+      - type: delete
+
+  # ---------------------------------------------------------------------------
+  # ibm.iam-custom-role
+  # ---------------------------------------------------------------------------
+
+  - name: iam-custom-role-no-description
+    description: |
+      SHOULD — Custom IAM roles with no description cannot be identified by purpose or owner.
+      Appends a custodian notice so operators can locate and document them.
+      Catches all three cases: description absent (null), description missing from payload,
+      or description set to an empty string.
+    resource: ibm.iam-custom-role
+    filters:
+      - or:
+        - type: value
+          key: description
+          value: absent
+        - type: value
+          key: description
+          op: eq
+          value: ""
+    actions:
+      - type: append-description
+        notice: "[custodian] No description provided — document the purpose and owner of this custom role."
+
+  # ---------------------------------------------------------------------------
+  # ibm.iam-access-group
+  # ---------------------------------------------------------------------------
+
+  - name: iam-access-group-empty
+    description: |
+      SHOULD — Access groups with zero members serve no purpose.
+    resource: ibm.iam-access-group
+    filters:
+      - type: value
+        key: member_count
+        op: eq
+        value: 0
+    actions:
+      - type: append-description
+        notice: "[custodian] This access group has zero members and requires review."
+
+  - name: iam-access-group-no-description
+    description: |
+      SHOULD — Access groups with an empty description cannot be identified by purpose or owner.
+      Appends a custodian notice so operators can locate and document them.
+    resource: ibm.iam-access-group
+    filters:
+      - type: value
+        key: description
+        op: eq
+        value: ""
+    actions:
+      - type: append-description
+        notice: "[custodian] No description provided — document the purpose and owner of this group."
+
+  # ---------------------------------------------------------------------------
+  # ibm.iam-trusted-profile
+  # ---------------------------------------------------------------------------
+
+  - name: iam-trusted-profile-stale
+    description: |
+      SHOULD — Trusted profiles unused for over 180 days.
+    resource: ibm.iam-trusted-profile
+    filters:
+      - type: age
+        op: gt
+        days: 180
+    actions:
+      - type: append-description
+        notice: "[custodian] This trusted profile has not been used for 180+ days."
+
+  - name: iam-trusted-profile-no-description
+    description: |
+      SHOULD — Trusted profiles with no description cannot be identified by purpose or owner.
+      Appends a custodian notice so operators can locate and document them.
+      Note: list_profiles returns description as null (absent) when not set, not as an empty string.
+    resource: ibm.iam-trusted-profile
+    filters:
+      - type: value
+        key: description
+        value: absent
+    actions:
+      - type: append-description
+        notice: "[custodian] No description provided — document the purpose and owner of this trusted profile."
+
+  # ---------------------------------------------------------------------------
+  # ibm.iam-policy
+  # ---------------------------------------------------------------------------
+
+  - name: iam-policy-wildcard-resource
+    description: |
+      MUST — IAM policies granting access to all resources (no serviceInstance scoping).
+      (Discovery/audit policy — iam-policy does not support tagging)
+    resource: ibm.iam-policy
+    filters:
+      - type: value
+        key: "resources[0].attributes[?name=='serviceInstance'] | [0].value"
+        value: absent
+
+  - name: iam-policy-no-conditions
+    description: |
+      SHOULD — IAM policies with no time/network conditions (always-on access).
+      (Discovery/audit policy — iam-policy does not support tagging)
+    resource: ibm.iam-policy
+    filters:
+      - type: value
+        key: rule
+        value: absent

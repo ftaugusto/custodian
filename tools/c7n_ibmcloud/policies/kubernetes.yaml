@@ -1,0 +1,251 @@
+policies:
+
+  # ---------------------------------------------------------------------------
+  # EOL version
+  # Both IKS (Kubernetes) and ROKS (OpenShift) share the same Container API;
+  # the "type" field differentiates them.  Version thresholds differ per engine.
+  # ---------------------------------------------------------------------------
+
+  - name: iks-cluster-eol-version
+    description: |
+      MUST — IKS clusters running a Kubernetes version below the supported minimum (1.29).
+      Update the version threshold as new releases arrive.
+    resource: ibm.iks-cluster
+    filters:
+      - type: version
+        op: lt
+        value: "1.36"
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "eol-kubernetes-version"
+
+  - name: roks-cluster-eol-version
+    description: |
+      MUST — ROKS clusters running an OpenShift version below the supported minimum (4.12).
+      Update the version threshold as new releases arrive.
+    resource: ibm.roks-cluster
+    filters:
+      - type: version
+        op: lt
+        value: "4.21"
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "eol-openshift-version"
+
+  # ---------------------------------------------------------------------------
+  # Cluster not in normal state
+  # ---------------------------------------------------------------------------
+
+  - name: iks-cluster-not-normal
+    description: |
+      MUST — IKS clusters not in normal state.
+    resource: ibm.iks-cluster
+    filters:
+      - type: value
+        key: state
+        op: ne
+        value: normal
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "not-normal"
+
+  - name: roks-cluster-not-normal
+    description: |
+      MUST — ROKS clusters not in normal state.
+    resource: ibm.roks-cluster
+    filters:
+      - type: value
+        key: state
+        op: ne
+        value: normal
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "not-normal"
+
+  # ---------------------------------------------------------------------------
+  # Public service endpoint enabled
+  # disablePublicServiceEndpoint=false means the public endpoint IS enabled.
+  # ---------------------------------------------------------------------------
+
+  - name: iks-cluster-public-endpoint-enabled
+    description: |
+      MUST — IKS clusters with the public service endpoint enabled
+      (disablePublicServiceEndpoint=false).
+    resource: ibm.iks-cluster
+    filters:
+      - type: value
+        key: disablePublicServiceEndpoint
+        op: eq
+        value: false
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "public-endpoint-enabled"
+
+  - name: roks-cluster-public-endpoint-enabled
+    description: |
+      MUST — ROKS clusters with the public service endpoint enabled
+      (disablePublicServiceEndpoint=false).
+    resource: ibm.roks-cluster
+    filters:
+      - type: value
+        key: disablePublicServiceEndpoint
+        op: eq
+        value: false
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "public-endpoint-enabled"
+
+  # ---------------------------------------------------------------------------
+  # Missing mandatory owner tag
+  # ---------------------------------------------------------------------------
+
+  - name: iks-cluster-missing-owner-tag
+    description: |
+      SHOULD — IKS clusters missing a mandatory owner tag.
+    resource: ibm.iks-cluster
+    filters:
+      - type: tag
+        key: owner
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "missing-owner-tag"
+
+  - name: roks-cluster-missing-owner-tag
+    description: |
+      SHOULD — ROKS clusters missing a mandatory owner tag.
+    resource: ibm.roks-cluster
+    filters:
+      - type: tag
+        key: owner
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "missing-owner-tag"
+
+  # ---------------------------------------------------------------------------
+  # Wrong resource group
+  # ---------------------------------------------------------------------------
+
+  - name: iks-cluster-wrong-resource-group
+    description: |
+      CAN — IKS clusters not in the expected resource group.
+      Update value to your approved resource group name.
+    resource: ibm.iks-cluster
+    filters:
+      - type: resource-group
+        op: ne
+        value: "approved-resource-group"
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "wrong-resource-group"
+
+  - name: roks-cluster-wrong-resource-group
+    description: |
+      CAN — ROKS clusters not in the expected resource group.
+      Update value to your approved resource group name.
+    resource: ibm.roks-cluster
+    filters:
+      - type: resource-group
+        op: ne
+        value: "approved-resource-group"
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "wrong-resource-group"
+
+  # ---------------------------------------------------------------------------
+  # KMS / Key Protect not enabled
+  # ---------------------------------------------------------------------------
+
+  - name: iks-cluster-kms-not-enabled
+    description: |
+      MUST — IKS clusters without Key Protect / KMS encryption enabled.
+      Clusters must have a KMS provider configured to encrypt etcd secrets.
+    resource: ibm.iks-cluster
+    filters:
+      - type: kms-enabled
+        enabled: false
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "kms-not-enabled"
+
+  - name: roks-cluster-kms-not-enabled
+    description: |
+      MUST — ROKS clusters without Key Protect / KMS encryption enabled.
+      OpenShift clusters must have a KMS provider configured to encrypt etcd secrets.
+    resource: ibm.roks-cluster
+    filters:
+      - type: kms-enabled
+        enabled: false
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "kms-not-enabled"
+
+  # ---------------------------------------------------------------------------
+  # ibm.iks-worker-pool  (shared by IKS and ROKS — type is on the parent cluster)
+  #
+  # Worker pools have no CRN of their own; the tag action targets the parent
+  # cluster's CRN so the cluster is flagged for operator review.
+  # ---------------------------------------------------------------------------
+
+  - name: iks-worker-pool-empty
+    description: |
+      SHOULD — IKS / ROKS worker pools with zero workers (workerCount=0).
+      Tags the parent cluster for operator review because worker pools have
+      no CRN of their own; the tag is attached to the cluster that owns the
+      empty pool.
+    resource: ibm.iks-worker-pool
+    filters:
+      - type: value
+        key: workerCount
+        op: eq
+        value: 0
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "empty-worker-pool"
+
+  - name: iks-worker-pool-underpopulated
+    description: |
+      SHOULD — IKS / ROKS worker pools with fewer than 3 workers (workerCount < 3
+      but > 0). Tags the parent cluster for operator review.
+    resource: ibm.iks-worker-pool
+    filters:
+      - type: value
+        key: workerCount
+        op: gt
+        value: 0
+      - type: value
+        key: workerCount
+        op: lt
+        value: 3
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "underpopulated-worker-pool"
+
+  - name: iks-worker-pool-missing-owner-tag
+    description: |
+      MUST — IKS / ROKS worker pools missing a mandatory owner tag.
+      Tags the parent cluster for operator review.
+    resource: ibm.iks-worker-pool
+    filters:
+      - type: tag
+        key: owner
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "missing-owner-tag"

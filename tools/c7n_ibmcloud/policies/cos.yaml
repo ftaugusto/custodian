@@ -1,0 +1,98 @@
+policies:
+
+  # ---------------------------------------------------------------------------
+  # ibm.cos-bucket
+  #
+  # NOTE: IBM COS buckets cannot be tagged directly via GlobalTaggingV1.
+  # The tag action targets the parent COS *service instance* and encodes the
+  # bucket name into the tag value so operators can identify which bucket
+  # triggered the policy.  Tag format: <key>:<value>--<bucket-name>
+  # Example: custodian-review:public-access--my-sensitive-bucket
+  # ---------------------------------------------------------------------------
+
+  - name: cos-bucket-public-access
+    description: |
+      MUST — Buckets with public access enabled. Detected via two signals:
+      (1) S3 ACL AllUsers/AuthenticatedUsers grants, (2) an IAM policy on the
+      built-in "Public Access" access group (AccessGroupId-PublicAccess) scoped
+      to this bucket, its COS instance, or the whole service/account.
+      Tags the parent COS service instance with the bucket name encoded in the
+      tag value for operator review.
+    resource: ibm.cos-bucket
+    filters:
+      - type: public-access
+        value: true
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "public-access"
+
+  - name: cos-bucket-no-customer-managed-key
+    description: |
+      MUST — Buckets not using a customer-managed Key Protect key (IBMSSEKPEnabled=false).
+      Tags the parent COS service instance with the bucket name encoded in the tag value.
+    resource: ibm.cos-bucket
+    filters:
+      - type: customer-managed-key
+        value: false
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "no-customer-managed-key"
+
+  - name: cos-bucket-versioning-disabled
+    description: |
+      SHOULD — Buckets without versioning enabled. Enables versioning directly on the bucket.
+    resource: ibm.cos-bucket
+    filters:
+      - type: versioning-enabled
+        value: false
+    actions:
+      - type: set-versioning
+        enabled: true
+
+  - name: cos-bucket-no-lifecycle-policy
+    description: |
+      SHOULD — Buckets without a lifecycle policy configured. Applies a default
+      365-day expiry rule directly on the bucket.
+    resource: ibm.cos-bucket
+    filters:
+      - type: lifecycle-configured
+        value: false
+    actions:
+      - type: set-lifecycle
+        rules:
+          - ID: custodian-default-expiry
+            Status: Enabled
+            Filter:
+              Prefix: ""
+            Expiration:
+              Days: 365
+
+  - name: cos-bucket-stale
+    description: |
+      CAN — Buckets created more than 365 days ago with no recent activity.
+      Tags the parent COS service instance with the bucket name encoded in the tag value.
+    resource: ibm.cos-bucket
+    filters:
+      - type: age
+        op: gt
+        days: 365
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "stale-bucket"
+
+  - name: cos-bucket-missing-owner-tag
+    description: |
+      MUST — Buckets missing a mandatory owner tag.
+      Tags the parent COS service instance with the bucket name encoded in the tag value.
+    resource: ibm.cos-bucket
+    filters:
+      - type: tag
+        key: owner
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "missing-owner-tag"

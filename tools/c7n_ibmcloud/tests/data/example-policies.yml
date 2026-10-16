@@ -1,0 +1,379 @@
+# IBM Cloud Custodian — example policies
+# Run from:  cloud-custodian/
+# Command:   custodian validate tools/c7n_ibmcloud/tests/data/example-policies.yml
+#            custodian run --output-dir /tmp/c7n-out \
+#                tools/c7n_ibmcloud/tests/data/example-policies.yml
+
+policies:
+
+  # ── IAM ────────────────────────────────────────────────────────────────────
+
+  - name: ibm-iam-users-no-mfa
+    description: >
+      Find IAM users that have no MFA (TOTP) configured.
+      IBM UserProfile objects have no CRN so they cannot be tagged via
+      GlobalTaggingV1. This policy reports findings only.
+    resource: ibm.iam-user
+    filters:
+      - type: mfa-disabled
+
+  - name: ibm-iam-old-api-keys
+    description: >
+      API keys older than 180 days should be rotated.
+      Tags them with rotation-needed and locks the key to prevent further use.
+    resource: ibm.iam-api-key
+    filters:
+      - type: age
+        op: gt
+        days: 180
+      - type: value
+        key: locked
+        value: false
+    actions:
+      - type: tag
+        tags:
+          rotation-needed: "true"
+      - lock
+
+  - name: ibm-iam-stale-service-ids
+    description: Service IDs untouched for over a year are candidates for deletion.
+    resource: ibm.iam-service-id
+    filters:
+      - type: age
+        op: gt
+        days: 365
+    actions:
+      - type: tag
+        tags:
+          custodian-finding: stale-service-id
+
+  # ── VPC ────────────────────────────────────────────────────────────────────
+
+  - name: ibm-vpc-untagged-instances
+    description: >
+      VPC instances that lack the required 'environment' tag violate
+      the tagging standard.
+    resource: ibm.vpc-instance
+    filters:
+      - type: tag
+        key: environment
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-finding: missing-environment-tag
+
+  - name: ibm-vpc-stopped-old-instances
+    description: >
+      Stopped instances older than 30 days are likely abandoned.
+      Mark them for deletion in 7 days.
+    resource: ibm.vpc-instance
+    filters:
+      - type: value
+        key: status
+        value: stopped
+      - type: age
+        op: gt
+        days: 30
+    actions:
+      - type: mark-for-op
+        op: delete
+        days: 7
+
+  - name: ibm-vpc-orphaned-floating-ips
+    description: >
+      Release floating IPs with status 'available'. IBM VPC FIPs are always
+      'available' when provisioned. The release action detaches the FIP from
+      its target (VSI NIC, BMS NIC, or virtual NI) before deleting it.
+      FIPs on public gateways are skipped with a warning.
+    resource: ibm.vpc-floating-ip
+    filters:
+      - type: value
+        key: status
+        value: available
+    actions:
+      - type: release
+
+  - name: ibm-vpc-old-unattached-volumes
+    description: >
+      Unattached block volumes are orphaned storage incurring unnecessary cost.
+      Uses attachment_state=unattached (the correct IBM VPC API field).
+    resource: ibm.vpc-volume
+    filters:
+      - type: value
+        key: attachment_state
+        value: unattached
+    actions:
+      - type: tag
+        tags:
+          custodian-finding: orphaned-volume
+
+  - name: ibm-vpc-high-memory-instances
+    description: >
+      VPC instances with more than 4 GiB of memory are tagged for cost review.
+      Uses the 'memory' field (integer GiB) from the VPC Instance API.
+    resource: ibm.vpc-instance
+    filters:
+      - type: value
+        key: memory
+        op: gt
+        value: 4
+    actions:
+      - type: tag
+        tags:
+          memory: gt-4
+
+  # ── COS ────────────────────────────────────────────────────────────────────
+
+  - name: ibm-cos-public-buckets
+    description: >
+      COS buckets with a public ACL grant expose data to the internet.
+      Tag for immediate review.
+    resource: ibm.cos-bucket
+    filters:
+      - type: public-access
+        value: true
+    actions:
+      - type: tag
+        tags:
+          custodian-finding: public-access-enabled
+
+  - name: ibm-cos-no-customer-managed-key
+    description: >
+      All IBM COS buckets are always encrypted with IBM-managed keys.
+      This policy finds buckets that do NOT use a customer-managed Key Protect
+      root key (IBMSSEKPEnabled=False) and tags them for remediation.
+      Enabling CMK requires associating the bucket with a Key Protect instance
+      via the IBM Cloud console or the COS Resource Configuration API.
+    resource: ibm.cos-bucket
+    filters:
+      - type: customer-managed-key
+        value: false
+    actions:
+      - type: tag
+        tags:
+          compliance: no-customer-managed-key
+
+  - name: ibm-cos-unversioned-buckets
+    description: Enable versioning on buckets that do not already have it.
+    resource: ibm.cos-bucket
+    filters:
+      - type: versioning-enabled
+        value: false
+    actions:
+      - type: set-versioning
+        enabled: true
+
+  # ── KMS ────────────────────────────────────────────────────────────────────
+
+  - name: ibm-kms-keys-no-rotation
+    description: >
+      Key Protect keys with no rotation policy are a compliance risk.
+      Tag them; a separate process should add rotation policies.
+    resource: ibm.kms-key
+    filters:
+      - type: rotation-policy
+        enabled: false
+      - type: state
+        value: active
+    actions:
+      - type: tag
+        tags:
+          custodian-finding: no-rotation-policy
+
+  # ── Databases ──────────────────────────────────────────────────────────────
+
+  - name: ibm-dbaas-old-postgres-version
+    description: >
+      PostgreSQL instances running a version below 15 should be upgraded.
+      Tag them so the DB team can schedule upgrades.
+    resource: ibm.dbaas-postgresql
+    filters:
+      - type: version
+        op: lt
+        value: "15"
+    actions:
+      - type: tag
+        tags:
+          custodian-finding: postgres-version-below-15
+
+  - name: ibm-vpc-high-vcpu-instances
+    description: >
+      VPC instances with more than 1 vCPU are deleted.
+      Uses the 'vcpu.count' nested field from the VPC Instance API.
+    resource: ibm.vpc-instance
+    filters:
+      - type: value
+        key: vcpu.count
+        op: gt
+        value: 1
+    actions:
+      - type: delete
+
+  - name: ibm-vpc-secg-open-inbound-ssh
+    description: >
+      Security groups with at least one inbound rule that allows port 22 (SSH)
+      from any source (0.0.0.0/0) are tagged for review.
+      The JMESPath key filters rules where port_min <= 22 <= port_max on the
+      same rule as direction=inbound and remote.cidr_block=0.0.0.0/0.
+      op: ne value: [] matches when the filtered rule list is non-empty.
+    resource: ibm.vpc-security-group
+    filters:
+      - type: value
+        key: "rules[?port_min <= `22` && port_max >= `22` && direction == `inbound` && remote.cidr_block == `0.0.0.0/0`]"
+        op: ne
+        value: []
+    actions:
+      - type: tag
+        tags:
+          sg: not-allowed
+
+  - name: ibm-vpc-nacl-allow-inbound-ssh
+    description: >
+      Network ACLs with at least one inbound ALLOW rule that permits port 22 (SSH)
+      from any source (0.0.0.0/0) are tagged for review.
+      ACL rules use destination_port_min/destination_port_max for the port range,
+      source for the source CIDR, and action for allow/deny.
+      op: ne value: [] matches when the filtered rule list is non-empty.
+    resource: ibm.vpc-network-acl
+    filters:
+      - type: value
+        key: "rules[?destination_port_min <= `22` && destination_port_max >= `22` && direction == `inbound` && action == `allow` && source == `0.0.0.0/0`]"
+        op: ne
+        value: []
+    actions:
+      - type: tag
+        tags:
+          nacl: open-ssh-review
+
+  # --- Bare Metal Servers ---
+  - name: ibm-vpc-bare-metal-untagged
+    description: Bare metal servers missing the owner tag are tagged for review.
+    resource: ibm.vpc-bare-metal
+    filters:
+      - type: tag
+        key: owner
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          compliance: missing-owner-tag
+
+  # --- Dedicated Hosts ---
+  - name: ibm-vpc-dedicated-host-not-provisionable
+    description: Dedicated hosts that are not accepting new instances should be reviewed.
+    resource: ibm.vpc-dedicated-host
+    filters:
+      - type: value
+        key: provisionable
+        op: eq
+        value: false
+    actions:
+      - type: tag
+        tags:
+          review: not-provisionable
+
+  # --- File Shares ---
+  - name: ibm-vpc-file-share-no-mount-targets
+    description: File shares with no mount targets are unused and waste capacity.
+    resource: ibm.vpc-file-share
+    filters:
+      - type: value
+        key: "mount_targets"
+        op: eq
+        value: []
+    actions:
+      - type: tag
+        tags:
+          review: no-mount-targets
+
+  # --- VPC SSH Keys ---
+  - name: ibm-vpc-ssh-key-old
+    description: VPC SSH keys older than 365 days should be rotated or removed.
+    resource: ibm.vpc-ssh-key
+    filters:
+      - type: age
+        op: gt
+        days: 365
+    actions:
+      - type: tag
+        tags:
+          review: stale-ssh-key
+
+  # --- Instance Groups ---
+  - name: ibm-vpc-empty-instance-groups
+    description: Instance groups with zero members are unused and should be cleaned up.
+    resource: ibm.vpc-instance-group
+    filters:
+      - type: value
+        key: membership_count
+        op: eq
+        value: 0
+    actions:
+      - type: tag
+        tags:
+          review: empty-instance-group
+
+  # --- Instance Templates ---
+  - name: ibm-vpc-stale-instance-templates
+    description: Instance templates older than 365 days may contain outdated configuration.
+    resource: ibm.vpc-instance-template
+    filters:
+      - type: age
+        op: gt
+        days: 365
+    actions:
+      - type: tag
+        tags:
+          review: stale-template
+
+  # --- Block Storage Snapshots ---
+  - name: ibm-vpc-orphaned-snapshots
+    description: >
+      Snapshots whose source volume has been deleted (source_volume absent or null)
+      cannot be used for restore and should be deleted to reduce costs.
+    resource: ibm.vpc-snapshot
+    filters:
+      - type: orphaned
+    actions:
+      - type: tag
+        tags:
+          review: orphaned-snapshot
+
+  # --- Backup Policies ---
+  - name: ibm-vpc-unconfigured-backup-policies
+    description: >
+      Backup policies with no plans defined protect nothing.
+      Tag them for review or delete them to reduce confusion.
+    resource: ibm.vpc-backup-policy
+    filters:
+      - type: unused
+    actions:
+      - type: tag
+        tags:
+          review: no-backup-plans
+
+  # --- Transit Gateways ---
+  - name: ibm-vpc-transit-gateway-failed
+    description: Transit gateways in a failed state need immediate attention.
+    resource: ibm.vpc-transit-gateway
+    filters:
+      - type: value
+        key: status
+        op: ne
+        value: available
+    actions:
+      - type: tag
+        tags:
+          review: degraded-transit-gw
+
+  # --- PowerVS SSH Keys ---
+  - name: ibm-powervs-ssh-key-old
+    description: PowerVS SSH keys older than 365 days should be rotated.
+    resource: ibm.powervs-ssh-key
+    filters:
+      - type: age
+        op: gt
+        days: 365
+    actions:
+      - delete

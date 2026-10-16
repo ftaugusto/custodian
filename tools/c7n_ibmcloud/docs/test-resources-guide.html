@@ -1,0 +1,2147 @@
+
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>IBM Cloud Custodian — Test Resources Guide</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,"Segoe UI",system-ui,sans-serif;font-size:14px;line-height:1.6;color:#1f2328;background:#fff;padding:24px}
+.wrap{max-width:960px;margin:0 auto}
+h1{font-size:22px;font-weight:700;margin-bottom:4px}
+.subtitle{color:#57606a;font-size:13px;margin-bottom:24px}
+h2{font-size:16px;font-weight:700;margin:32px 0 12px;padding:8px 12px;background:#f7f8fa;border-left:4px solid #3b82d4;border-radius:2px}
+h3{font-size:13px;font-weight:700;margin:18px 0 6px;color:#1f2328}
+.policy-block{border:1px solid #e5e7eb;border-radius:4px;margin-bottom:16px;overflow:hidden}
+.policy-header{padding:8px 12px;background:#f7f8fa;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.policy-name{font-family:monospace;font-size:12px;font-weight:700;color:#1f2328}
+.badge{font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;white-space:nowrap}
+.must{background:#fee2e2;color:#991b1b}
+.should{background:#fef3c7;color:#92400e}
+.can{background:#d1fae5;color:#065f46}
+.policy-body{padding:12px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px}
+@media(max-width:660px){.row{grid-template-columns:1fr}}
+.col-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px}
+.noncompliant .col-label{color:#991b1b}
+.compliant .col-label{color:#065f46}
+pre{background:#f7f8fa;border:1px solid #e5e7eb;border-radius:3px;padding:8px 10px;font-size:11.5px;line-height:1.5;overflow-x:auto;white-space:pre-wrap;word-break:break-all}
+.note{font-size:12px;color:#57606a;margin-top:6px;padding:6px 8px;background:#fffbeb;border:1px solid #fcd34d;border-radius:3px}
+.toc{background:#f7f8fa;border:1px solid #e5e7eb;border-radius:4px;padding:12px 16px;margin-bottom:28px}
+.toc h2{margin:0 0 8px;padding:0;background:none;border:none;font-size:14px}
+.toc ol{margin-left:18px}
+.toc li{margin:3px 0;font-size:13px}
+.toc a{color:#3b82d4;text-decoration:none}
+.toc a:hover{text-decoration:underline}
+.prereq{background:#eff6ff;border:1px solid #bfdbfe;border-radius:4px;padding:12px 16px;margin-bottom:24px;font-size:13px}
+.prereq h3{margin-bottom:6px;color:#1d4ed8}
+.prereq pre{margin-top:8px}
+.cleanup{background:#fef2f2;border:1px solid #fecaca;border-radius:4px;padding:12px 16px;margin-top:28px;font-size:13px}
+.cleanup h3{margin-bottom:6px;color:#991b1b}
+.section-note{font-size:12px;color:#57606a;margin:-8px 0 10px;padding:6px 8px;background:#f7f8fa;border:1px solid #e5e7eb;border-radius:3px}
+footer{margin-top:40px;padding-top:12px;border-top:1px solid #e5e7eb;text-align:center;font-size:12px;color:#57606a}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>IBM Cloud Custodian — Test Resources Guide</h1>
+<p class="subtitle">IBM CLI commands to create <strong>non-compliant</strong> (policy fires) and <strong>compliant</strong> (policy does not fire) resources for every check across all 10 governance policy files.</p>
+
+<div class="prereq">
+<h3>Prerequisites</h3>
+<pre>ibmcloud login --sso
+ibmcloud target -r us-south -g Default
+
+# Create a shared resource group for governance tests
+ibmcloud resource group-create governance-tests
+RG_ID=$(ibmcloud resource group governance-tests --output json | jq -r '.[0].id')
+
+# Approved group (used by resource-group filter tests)
+ibmcloud resource group-create approved-resource-group
+
+# VPC base infrastructure
+ibmcloud is vpc-create test-vpc --resource-group-name governance-tests
+VPC_ID=$(ibmcloud is vpcs --output json | jq -r '.[] | select(.name=="test-vpc") | .id')
+ibmcloud is subnet-create test-subnet $VPC_ID --zone us-south-1 --ipv4-prefix-length 24 --resource-group-name governance-tests
+SUBNET_ID=$(ibmcloud is subnets --output json | jq -r '.[] | select(.name=="test-subnet") | .id')
+
+# SSH key for instance tests
+ibmcloud is key-create test-key "$(cat ~/.ssh/id_rsa.pub 2&gt;/dev/null || ssh-keygen -t rsa -N '' -f /tmp/testkey -q &amp;&amp; cat /tmp/testkey.pub)"
+KEY_ID=$(ibmcloud is keys --output json | jq -r '.[] | select(.name=="test-key") | .id')
+
+# Install Transit Gateway plugin (needed for transit gateway tests)
+ibmcloud plugin install tg
+
+# Export region
+export REGION=us-south</pre>
+</div>
+
+<div class="toc">
+<h2>Table of Contents</h2>
+<ol>
+<li><a href="#iam">IAM (iam.yaml) — 18 policies</a></li>
+<li><a href="#vpc-compute">VPC Compute (vpc-compute.yaml) — 23 policies</a></li>
+<li><a href="#vpc-networking">VPC Networking (vpc-networking.yaml) — 27 policies</a></li>
+<li><a href="#vpc-storage">VPC Storage (vpc-storage.yaml) — 15 policies</a></li>
+<li><a href="#cos">Cloud Object Storage (cos.yaml) — 6 policies</a></li>
+<li><a href="#kms">Key Management Service (kms.yaml) — 7 policies</a></li>
+<li><a href="#kubernetes">Kubernetes / OpenShift (kubernetes.yaml) — 10 policies</a></li>
+<li><a href="#powervs">Power Virtual Server (powervs.yaml) — 18 policies</a></li>
+<li><a href="#dbaas">Databases (dbaas.yaml) — 12 policies</a></li>
+<li><a href="#cross">Cross-Cutting (cross-cutting.yaml) — ~53 policies</a></li>
+<li><a href="#cleanup">Cleanup</a></li>
+</ol>
+</div>
+
+
+<h2 id="iam">1. IAM — iam.yaml</h2>
+<p class="section-note">IAM resources (iam-user, iam-api-key, iam-access-group, iam-policy, iam-trusted-profile) do not support GlobalTaggingV1 — actions use custom non-tag mechanisms.</p>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">iam-user-mfa-disabled</span><span class="badge must">MUST</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (policy fires)</div>
+<pre># Invite a user — MFA is not enrolled by default.
+# MFA enrollment cannot be forced via CLI; invite any new user.
+ibmcloud account user-invite noncompliant-user@external.com</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (policy does not fire)</div>
+<pre># A user who has completed MFA enrollment in the IBM Cloud console
+# will NOT be matched by the mfa-disabled filter.
+# Verify via: ibmcloud account users --output json | jq '.[] | select(.iam_id!=null)'
+# (No CLI command exists to enroll MFA — direct user to console Settings → MFA)</pre>
+</div>
+</div>
+<p class="note">MFA status is set by the user in the IBM Cloud console. The policy flags any user where the MFA filter returns a match.</p>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">iam-user-suspended</span><span class="badge should">SHOULD</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (state ≠ ACTIVE)</div>
+<pre># Suspend a user (requires account owner privileges):
+ibmcloud account user-status-set suspended-user@example.com SUSPENDED</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (state = ACTIVE)</div>
+<pre># Active user — default state after accepting invitation:
+ibmcloud account user-invite active-user@example.com
+# Verify: ibmcloud account users --output json | jq '.[] | select(.state=="ACTIVE")'</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">iam-user-external-domain</span><span class="badge can">CAN</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (email matches *@external.com)</div>
+<pre>ibmcloud account user-invite outsider@external.com</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (internal domain)</div>
+<pre>ibmcloud account user-invite insider@yourcompany.com</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">iam-api-key-rotation-overdue</span><span class="badge must">MUST</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (age &gt; 180 days)</div>
+<pre># Cannot back-date key creation. Use an existing key older than 180 days, or:
+# For testing, create and note the date — policy fires after 180 days.
+ibmcloud iam api-key-create old-test-key --description "Old key for custodian test"</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (age ≤ 180 days)</div>
+<pre>ibmcloud iam api-key-create fresh-test-key --description "Fresh key for custodian test"</pre>
+</div>
+</div>
+<p class="note">Time-dependent: age &gt; 180 days cannot be simulated immediately. The non-compliant resource must be an existing key older than 180 days, or the test must be deferred.</p>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">iam-api-key-unlocked-past-rotation-age</span><span class="badge must">MUST</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (unlocked + age &gt; 180 days)</div>
+<pre># Same as above — requires an existing key older than 180 days that is not locked.
+# Keys are unlocked by default.
+ibmcloud iam api-key-create unlocked-old-key --description "Unlocked old key"
+# Do NOT lock it — this key must age past 180 days to trigger the policy.</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (locked, or fresh)</div>
+<pre>ibmcloud iam api-key-create locked-key --description "Locked for compliance"
+KEY_ID=$(ibmcloud iam api-keys --output json | jq -r '.[] | select(.name=="locked-key") | .id')
+ibmcloud iam api-key-lock $KEY_ID</pre>
+</div>
+</div>
+<p class="note">Time-dependent: same 180-day constraint as above.</p>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">iam-api-key-root-account-owner</span><span class="badge must">MUST</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (iam_id contains "IBMid")</div>
+<pre># Keys created by a human IBM account (IBMid-xxxx) naturally contain "IBMid" in iam_id.
+# Create a key as a regular IBMid user:
+ibmcloud iam api-key-create root-owner-key --description "Root key test"
+# Verify: ibmcloud iam api-keys --output json | jq '.[] | select(.iam_id | contains("IBMid"))'</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (service ID key — iam_id does not contain "IBMid")</div>
+<pre>SVC_ID=$(ibmcloud iam service-id-create svc-non-root --description "Non-root service" --output json | jq -r '.id')
+ibmcloud iam service-api-key-create svc-non-root-key $SVC_ID --description "ServiceID key"</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">iam-api-key-no-description</span><span class="badge should">SHOULD</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (description = "")</div>
+<pre>ibmcloud iam api-key-create no-desc-key</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (has description)</div>
+<pre>ibmcloud iam api-key-create described-key --description "Owner: team-alpha; purpose: CI/CD"</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">iam-service-id-stale</span><span class="badge should">SHOULD</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (age &gt; 365 days)</div>
+<pre># Must be an existing service ID older than 365 days.
+# For testing, identify an old service ID:
+ibmcloud iam service-ids --output json | jq '.[] | select(.created_at) | {name:.name, created:.created_at}'</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (freshly created)</div>
+<pre>ibmcloud iam service-id-create fresh-svc-id --description "Fresh service ID for custodian test"</pre>
+</div>
+</div>
+<p class="note">Time-dependent: cannot be simulated for a new service ID.</p>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">iam-service-id-no-description</span><span class="badge should">SHOULD</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (no description)</div>
+<pre>ibmcloud iam service-id-create no-desc-svc-id</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (has description)</div>
+<pre>ibmcloud iam service-id-create described-svc-id --description "Owned by team-beta"</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">iam-service-id-missing-owner-tag</span><span class="badge can">CAN</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (no owner tag)</div>
+<pre>ibmcloud iam service-id-create no-owner-svc-id --description "Missing owner tag test"</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (has owner tag)</div>
+<pre>SVC_CRN=$(ibmcloud iam service-id described-svc-id --output json | jq -r '.crn')
+ibmcloud resource tag-attach --tag-names "owner:team-beta" --resource-id "$SVC_CRN"</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">iam-service-id-marked-for-op</span><span class="badge should">SHOULD</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (marked for delete, deadline passed)</div>
+<pre># Step 1: Run the iam-service-id-stale policy to mark an old service ID.
+# Step 2: The execute policy fires after the days: 7 deadline.
+# For immediate test, manually apply the mark tag:
+SVC_CRN=$(ibmcloud iam service-id no-desc-svc-id --output json | jq -r '.crn')
+ibmcloud resource tag-attach --tag-names "custodian_status:delete@2000-01-01" --resource-id "$SVC_CRN"</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (not marked)</div>
+<pre>ibmcloud iam service-id-create not-marked-svc-id --description "Not marked for deletion"</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">iam-access-group-empty</span><span class="badge should">SHOULD</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (0 members)</div>
+<pre>ibmcloud iam access-group-create empty-test-group --description "Empty group for custodian test"</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (≥1 member)</div>
+<pre>ibmcloud iam access-group-create nonempty-test-group --description "Non-empty group"
+ibmcloud iam access-group-user-add nonempty-test-group user@yourcompany.com</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">iam-access-group-no-description</span><span class="badge should">SHOULD</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (description = "")</div>
+<pre># Create an access group without a description (empty string by default):
+ibmcloud iam access-group-create no-desc-access-group
+# Verify: ibmcloud iam access-group no-desc-access-group --output json | jq '.description'</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (has description)</div>
+<pre>ibmcloud iam access-group-create described-access-group \
+  --description "Owned by team-alpha; grants Viewer on COS"</pre>
+</div>
+</div>
+<p class="note"><strong>Action:</strong> <code>append-description</code> — appends <code>"[custodian] This group requires review."</code> via <code>IamAccessGroupsV2.update_access_group</code>. Fetches ETag via <code>get_access_group</code> first. Idempotent.</p>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">iam-trusted-profile-stale</span><span class="badge should">SHOULD</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (age &gt; 180 days)</div>
+<pre># Must be an existing trusted profile older than 180 days.
+ibmcloud iam trusted-profiles --output json | jq '.[] | {name:.name, created:.created_at}'</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (freshly created)</div>
+<pre>ibmcloud iam trusted-profile-create fresh-trusted-profile --description "Fresh profile"</pre>
+</div>
+</div>
+<p class="note">Time-dependent: cannot be simulated for a newly created profile.</p>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">iam-trusted-profile-no-description</span><span class="badge should">SHOULD</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (description absent / null)</div>
+<pre># Create a trusted profile without a description:
+ibmcloud iam trusted-profile-create no-desc-trusted-profile
+# list_profiles returns description=null when absent (not "").
+# Verify: ibmcloud iam trusted-profiles --output json | jq '.[] | select(.name=="no-desc-trusted-profile") | .description'</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (has description)</div>
+<pre>ibmcloud iam trusted-profile-create described-trusted-profile \
+  --description "CI/CD pipeline identity for team-alpha"</pre>
+</div>
+</div>
+<p class="note"><strong>Filter:</strong> <code>value key:description op:absent</code> — matches when description is <code>null</code>. <strong>Action:</strong> <code>append-description</code> — appends notice via <code>IamIdentityV1.update_profile</code>. Fetches ETag via <code>get_profile</code> first.</p>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">iam-custom-role-no-description</span><span class="badge should">SHOULD</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (description absent or empty)</div>
+<pre># Create a custom role without a description:
+# (Requires account ID — get it from ibmcloud account show)
+ACCOUNT_ID=$(ibmcloud account show --output json | jq -r '.account_id')
+ibmcloud iam role-create no-desc-custom-role \
+  --service-name cloud-object-storage \
+  --actions cloud-object-storage.bucket.get \
+  --display-name "No Desc Custom Role"
+# list_roles returns description=null or key absent when not set.</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (has description)</div>
+<pre>ibmcloud iam role-create described-custom-role \
+  --service-name cloud-object-storage \
+  --actions cloud-object-storage.bucket.get \
+  --display-name "Described Custom Role" \
+  --description "Grants read-only bucket access for team-alpha audit tooling"</pre>
+</div>
+</div>
+<p class="note"><strong>Filter:</strong> <code>or:</code> block matching <code>value key:description op:absent</code> OR <code>value key:description op:eq value:""</code>. <strong>Action:</strong> <code>append-description</code> — calls <code>IamPolicyManagementV1.replace_role</code> (full-replace endpoint); fetches ETag, <code>display_name</code>, and <code>actions</code> via <code>get_role</code> first. Idempotent.</p>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">iam-policy-wildcard-resource</span><span class="badge must">MUST</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (no serviceInstance scoping)</div>
+<pre># Policy grants access to ALL resources of a service type (no instance scoping):
+ibmcloud iam user-policy-create user@example.com \
+  --roles Viewer \
+  --service-name cloud-object-storage</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (scoped to a specific instance)</div>
+<pre>COS_ID=$(ibmcloud resource service-instance cos-test --output json | jq -r '.[0].id')
+ibmcloud iam user-policy-create user@example.com \
+  --roles Viewer \
+  --service-name cloud-object-storage \
+  --service-instance $COS_ID</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">iam-policy-no-conditions</span><span class="badge should">SHOULD</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (no time/IP conditions)</div>
+<pre># Standard policy with no conditions (rule field absent):
+ibmcloud iam user-policy-create user@example.com \
+  --roles Viewer \
+  --service-name is</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (has time condition)</div>
+<pre># Create policy with condition using JSON file:
+cat &gt; /tmp/policy-with-condition.json &lt;&lt;'EOF'
+{
+  "type": "access",
+  "subjects": [{"attributes":[{"name":"iam_id","value":"IBMid-XXXXXX"}]}],
+  "roles": [{"role_id":"crn:v1:bluemix:public:iam::::role:Viewer"}],
+  "resources": [{"attributes":[{"name":"serviceName","value":"is"}]}],
+  "rule": {"operator":"and","conditions":[{"key":"{{environment.attributes.current_time}}","operator":"timeLessThanOrEquals","value":"17:00:00+00:00"}]}
+}
+EOF
+ibmcloud iam policy-create --file /tmp/policy-with-condition.json</pre>
+</div>
+</div>
+</div>
+</div>
+
+
+<h2 id="vpc-compute">2. VPC Compute — vpc-compute.yaml</h2>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">vpc-instance-zombie-stopped</span><span class="badge should">SHOULD</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (stopped &gt; 30 days)</div>
+<pre># Create and stop an instance, then wait 30 days — OR use an existing stopped instance.
+ibmcloud is instance-create zombie-instance $VPC_ID us-south-1 bx2-2x8 $SUBNET_ID \
+  --image ibm-ubuntu-22-04-minimal-amd64-1 --keys $KEY_ID \
+  --resource-group-name governance-tests
+INST_ID=$(ibmcloud is instances --output json | jq -r '.[] | select(.name=="zombie-instance") | .id')
+ibmcloud is instance-stop $INST_ID --force</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (running, or stopped &lt; 30 days)</div>
+<pre>ibmcloud is instance-create running-instance $VPC_ID us-south-1 bx2-2x8 $SUBNET_ID \
+  --image ibm-ubuntu-22-04-minimal-amd64-1 --keys $KEY_ID \
+  --resource-group-name governance-tests</pre>
+</div>
+</div>
+<p class="note">Time-dependent: stopped &gt; 30 days cannot be simulated immediately. Verify with existing stopped instances.</p>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">vpc-instance-missing-owner-tag</span><span class="badge must">MUST</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (no owner tag)</div>
+<pre>ibmcloud is instance-create no-owner-instance $VPC_ID us-south-1 bx2-2x8 $SUBNET_ID \
+  --image ibm-ubuntu-22-04-minimal-amd64-1 --keys $KEY_ID \
+  --resource-group-name governance-tests</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (has owner tag)</div>
+<pre>INST_ID=$(ibmcloud is instances --output json | jq -r '.[] | select(.name=="running-instance") | .id')
+ibmcloud resource tag-attach --tag-names "owner:team-alpha" --resource-id "$INST_ID"</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">vpc-instance-missing-environment-tag</span><span class="badge must">MUST</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (no environment tag)</div>
+<pre># The no-owner-instance above also has no environment tag — same resource qualifies.</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (has environment tag)</div>
+<pre>INST_ID=$(ibmcloud is instances --output json | jq -r '.[] | select(.name=="running-instance") | .id')
+ibmcloud resource tag-attach --tag-names "environment:production" --resource-id "$INST_ID"</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">vpc-instance-non-approved-zone</span><span class="badge should">SHOULD</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (zone ≠ us-south-1)</div>
+<pre># Create a subnet in us-south-2 and deploy there:
+ibmcloud is subnet-create test-subnet-2 $VPC_ID --zone us-south-2 --ipv4-prefix-length 24
+SUBNET2_ID=$(ibmcloud is subnets --output json | jq -r '.[] | select(.name=="test-subnet-2") | .id')
+ibmcloud is instance-create wrong-zone-instance $VPC_ID us-south-2 bx2-2x8 $SUBNET2_ID \
+  --image ibm-ubuntu-22-04-minimal-amd64-1 --keys $KEY_ID \
+  --resource-group-name governance-tests</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (zone = us-south-1)</div>
+<pre>ibmcloud is instance-create approved-zone-instance $VPC_ID us-south-1 bx2-2x8 $SUBNET_ID \
+  --image ibm-ubuntu-22-04-minimal-amd64-1 --keys $KEY_ID \
+  --resource-group-name governance-tests</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">vpc-instance-oversized</span><span class="badge can">CAN</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (vCPU &gt; 16)</div>
+<pre># bx2-32x128 has 32 vCPUs — above the 16 threshold:
+ibmcloud is instance-create oversized-instance $VPC_ID us-south-1 bx2-32x128 $SUBNET_ID \
+  --image ibm-ubuntu-22-04-minimal-amd64-1 --keys $KEY_ID \
+  --resource-group-name governance-tests</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (vCPU ≤ 16)</div>
+<pre># bx2-8x32 has 8 vCPUs:
+ibmcloud is instance-create small-instance $VPC_ID us-south-1 bx2-8x32 $SUBNET_ID \
+  --image ibm-ubuntu-22-04-minimal-amd64-1 --keys $KEY_ID \
+  --resource-group-name governance-tests</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">vpc-instance-marked-for-op</span><span class="badge should">SHOULD</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (marked for delete, deadline passed)</div>
+<pre># Step 1: vpc-instance-zombie-stopped marks the zombie-instance.
+# Step 2: After 7 days, this policy fires and deletes it.
+# For immediate test, manually apply the expired mark tag:
+INST_ID=$(ibmcloud is instances --output json | jq -r '.[] | select(.name=="zombie-instance") | .id')
+ibmcloud resource tag-attach --tag-names "custodian_status:delete@2000-01-01" \
+  --resource-id "$INST_ID"</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (not marked)</div>
+<pre># Any instance without the custodian_status tag is not matched.</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">vpc-instance-wrong-resource-group</span><span class="badge can">CAN</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (not in approved-resource-group)</div>
+<pre># Instances created under governance-tests group are non-compliant:
+ibmcloud is instance-create wrong-rg-instance $VPC_ID us-south-1 bx2-2x8 $SUBNET_ID \
+  --image ibm-ubuntu-22-04-minimal-amd64-1 --keys $KEY_ID \
+  --resource-group-name governance-tests</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (in approved-resource-group)</div>
+<pre>APPROVED_SUBNET=$(ibmcloud is subnets --output json | jq -r '.[] | select(.name=="test-subnet") | .id')
+ibmcloud is instance-create approved-rg-instance $VPC_ID us-south-1 bx2-2x8 $APPROVED_SUBNET \
+  --image ibm-ubuntu-22-04-minimal-amd64-1 --keys $KEY_ID \
+  --resource-group-name approved-resource-group</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">vpc-bare-metal-not-running</span><span class="badge must">MUST</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (status ≠ running)</div>
+<pre># Create a bare metal server, then stop it:
+ibmcloud is bare-metal-server-create bms-test $VPC_ID us-south-1 $SUBNET_ID \
+  --image ibm-esxi-7-amd64-1 --keys $KEY_ID \
+  --profile cx2-metal-96x192
+BMS_ID=$(ibmcloud is bare-metal-servers --output json | jq -r '.[] | select(.name=="bms-test") | .id')
+ibmcloud is bare-metal-server-stop $BMS_ID --force</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (status = running)</div>
+<pre>ibmcloud is bare-metal-server-create bms-running $VPC_ID us-south-1 $SUBNET_ID \
+  --image ibm-esxi-7-amd64-1 --keys $KEY_ID \
+  --profile cx2-metal-96x192
+# Wait for provisioning to complete: ibmcloud is bare-metal-server bms-running</pre>
+</div>
+</div>
+<p class="note">Bare metal servers are expensive — use only for dedicated governance testing environments. Delete immediately after testing.</p>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">vpc-bare-metal-unhealthy / vpc-bare-metal-no-secure-boot / vpc-bare-metal-stale / vpc-bare-metal-missing-owner-tag</span><span class="badge must">MUST</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant</div>
+<pre># unhealthy: health_state ≠ ok — occurs organically when hardware faults.
+# no-secure-boot: create server without --secure-boot:
+ibmcloud is bare-metal-server-create bms-no-secboot $VPC_ID us-south-1 $SUBNET_ID \
+  --image ibm-esxi-7-amd64-1 --keys $KEY_ID --profile cx2-metal-96x192
+# stale: time-dependent, must be older than 730 days.
+# missing-owner-tag: do not attach an owner tag to bms-no-secboot.</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant</div>
+<pre># no-secure-boot: create WITH --enable-secure-boot true (if supported by profile):
+ibmcloud is bare-metal-server-create bms-secboot $VPC_ID us-south-1 $SUBNET_ID \
+  --image ibm-esxi-7-amd64-1 --keys $KEY_ID --profile cx2-metal-96x192 \
+  --enable-secure-boot true
+# missing-owner-tag: attach tag:
+BMS_ID=$(ibmcloud is bare-metal-servers --output json | jq -r '.[] | select(.name=="bms-secboot") | .id')
+ibmcloud resource tag-attach --tag-names "owner:team-alpha" --resource-id "$BMS_ID"</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">vpc-dedicated-host-not-available / vpc-dedicated-host-not-provisionable / vpc-dedicated-host-underutilised / vpc-dedicated-host-missing-owner-tag</span><span class="badge must">MUST</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant</div>
+<pre># Create a dedicated host:
+ibmcloud is dedicated-host-create \
+  --name dh-test \
+  --profile bx2d-host-152x608 \
+  --zone us-south-1 \
+  --resource-group-name governance-tests
+DH_ID=$(ibmcloud is dedicated-hosts --output json | jq -r '.[] | select(.name=="dh-test") | .id')
+# not-available: state changes organically on hardware fault.
+# underutilised: bx2d-host-152x608 has 608 GiB — available_memory &gt; 500 GiB when empty.
+# missing-owner-tag: do NOT tag dh-test.</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant</div>
+<pre># Attach owner tag:
+ibmcloud resource tag-attach --tag-names "owner:team-alpha" --resource-id "$DH_ID"
+# not-provisionable: becomes false when capacity is reached — not directly controllable.</pre>
+</div>
+</div>
+<p class="note">Dedicated hosts incur substantial cost. Delete after testing.</p>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">vpc-instance-group-empty / vpc-instance-group-not-stable / vpc-instance-group-missing-owner-tag</span><span class="badge should">SHOULD</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant</div>
+<pre># Create instance template first:
+ibmcloud is instance-template-create tmpl-test $VPC_ID us-south-1 bx2-2x8 $SUBNET_ID \
+  --image ibm-ubuntu-22-04-minimal-amd64-1 --keys $KEY_ID \
+  --resource-group-name governance-tests
+TMPL_ID=$(ibmcloud is instance-templates --output json | jq -r '.[] | select(.name=="tmpl-test") | .id')
+
+# Create instance group with 0 members (empty):
+ibmcloud is instance-group-create empty-ig $TMPL_ID \
+  --subnets $SUBNET_ID --membership-count 0 \
+  --resource-group-name governance-tests</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant</div>
+<pre># Create instance group with 1+ member and stable state:
+ibmcloud is instance-group-create nonempty-ig $TMPL_ID \
+  --subnets $SUBNET_ID --membership-count 1 \
+  --resource-group-name governance-tests
+IG_ID=$(ibmcloud is instance-groups --output json | jq -r '.[] | select(.name=="nonempty-ig") | .id')
+ibmcloud resource tag-attach --tag-names "owner:team-alpha" --resource-id "$IG_ID"</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">vpc-instance-template-stale / vpc-instance-template-missing-owner-tag</span><span class="badge should">SHOULD</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant</div>
+<pre># stale: time-dependent — must be &gt; 365 days old.
+# missing-owner-tag: tmpl-test created above has no owner tag.</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant</div>
+<pre>ibmcloud is instance-template-create tmpl-owned $VPC_ID us-south-1 bx2-2x8 $SUBNET_ID \
+  --image ibm-ubuntu-22-04-minimal-amd64-1 --keys $KEY_ID \
+  --resource-group-name approved-resource-group
+TMPL2_ID=$(ibmcloud is instance-templates --output json | jq -r '.[] | select(.name=="tmpl-owned") | .id')
+ibmcloud resource tag-attach --tag-names "owner:team-alpha" --resource-id "$TMPL2_ID"</pre>
+</div>
+</div>
+</div>
+</div>
+
+
+<h2 id="vpc-networking">3. VPC Networking — vpc-networking.yaml</h2>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">vpc-network-empty</span><span class="badge should">SHOULD</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (VPC with no subnets)</div>
+<pre>ibmcloud is vpc-create empty-vpc --resource-group-name governance-tests</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (VPC with subnets)</div>
+<pre># test-vpc already has test-subnet — compliant.
+# Verify: ibmcloud is subnets --output json | jq '.[] | select(.vpc.name=="test-vpc")'</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">vpc-network-missing-owner-tag</span><span class="badge must">MUST</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (no owner tag)</div>
+<pre># empty-vpc and test-vpc have no owner tag by default.</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (has owner tag)</div>
+<pre>VPC_ID=$(ibmcloud is vpcs --output json | jq -r '.[] | select(.name=="test-vpc") | .id')
+ibmcloud resource tag-attach --tag-names "owner:team-alpha" --resource-id "$VPC_ID"</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">vpc-network-wrong-resource-group</span><span class="badge can">CAN</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (wrong resource group)</div>
+<pre># test-vpc and empty-vpc are in governance-tests — non-compliant.</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (in approved-resource-group)</div>
+<pre>ibmcloud is vpc-create approved-vpc --resource-group-name approved-resource-group</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">vpc-subnet-not-available</span><span class="badge must">MUST</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (status ≠ available)</div>
+<pre># Subnets briefly enter pending state during creation.
+# A subnet stuck in failed/pending state is non-compliant.
+# Simulate: create a subnet with an invalid ACL to force a failed state.
+# (In practice, monitor for subnets that fail to reach available.)</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (status = available)</div>
+<pre># test-subnet is in available state once provisioned:
+ibmcloud is subnet test-subnet --output json | jq '.status'</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">vpc-subnet-exhausted</span><span class="badge should">SHOULD</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (available_ipv4_address_count = 0)</div>
+<pre># Create a /29 subnet (3 usable IPs) and attach 3 instances to consume all IPs:
+ibmcloud is subnet-create tiny-subnet $VPC_ID --zone us-south-1 --ipv4-prefix-length 29
+TINY_SUBNET=$(ibmcloud is subnets --output json | jq -r '.[] | select(.name=="tiny-subnet") | .id')
+# Then create 3 instances on tiny-subnet to exhaust addresses.</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (IPs available)</div>
+<pre># test-subnet /24 has 251 available addresses — compliant.</pre>
+</div>
+</div>
+<p class="note">Fully exhausting a subnet requires consuming all usable IPs with network interfaces. Practical for a /29 (3 usable IPs after IBM reserves 5).</p>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">vpc-subnet-missing-owner-tag</span><span class="badge must">MUST</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant</div>
+<pre># test-subnet has no owner tag by default.</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant</div>
+<pre>SUBNET_ID=$(ibmcloud is subnets --output json | jq -r '.[] | select(.name=="test-subnet") | .id')
+ibmcloud resource tag-attach --tag-names "owner:team-alpha" --resource-id "$SUBNET_ID"</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">vpc-security-group-open-ssh</span><span class="badge must">MUST</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (port 22 open from 0.0.0.0/0)</div>
+<pre>ibmcloud is security-group-create sg-open-ssh $VPC_ID --resource-group-name governance-tests
+SG_ID=$(ibmcloud is security-groups --output json | jq -r '.[] | select(.name=="sg-open-ssh") | .id')
+ibmcloud is security-group-rule-add $SG_ID inbound tcp \
+  --port-min 22 --port-max 22 --remote 0.0.0.0/0</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (SSH restricted to specific CIDR)</div>
+<pre>ibmcloud is security-group-create sg-restricted-ssh $VPC_ID --resource-group-name governance-tests
+SG2_ID=$(ibmcloud is security-groups --output json | jq -r '.[] | select(.name=="sg-restricted-ssh") | .id')
+ibmcloud is security-group-rule-add $SG2_ID inbound tcp \
+  --port-min 22 --port-max 22 --remote 10.0.0.0/8</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">vpc-security-group-open-rdp</span><span class="badge must">MUST</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (port 3389 open from 0.0.0.0/0)</div>
+<pre>ibmcloud is security-group-create sg-open-rdp $VPC_ID --resource-group-name governance-tests
+SG_RDP=$(ibmcloud is security-groups --output json | jq -r '.[] | select(.name=="sg-open-rdp") | .id')
+ibmcloud is security-group-rule-add $SG_RDP inbound tcp \
+  --port-min 3389 --port-max 3389 --remote 0.0.0.0/0</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (RDP restricted to specific CIDR)</div>
+<pre>ibmcloud is security-group-create sg-restricted-rdp $VPC_ID --resource-group-name governance-tests
+SG_RDP2=$(ibmcloud is security-groups --output json | jq -r '.[] | select(.name=="sg-restricted-rdp") | .id')
+ibmcloud is security-group-rule-add $SG_RDP2 inbound tcp \
+  --port-min 3389 --port-max 3389 --remote 192.168.1.0/24</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">vpc-security-group-wide-open-inbound</span><span class="badge must">MUST</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (all ports open from 0.0.0.0/0)</div>
+<pre>ibmcloud is security-group-create sg-wide-open $VPC_ID --resource-group-name governance-tests
+SG_WIDE=$(ibmcloud is security-groups --output json | jq -r '.[] | select(.name=="sg-wide-open") | .id')
+ibmcloud is security-group-rule-add $SG_WIDE inbound tcp \
+  --port-min 1 --port-max 65535 --remote 0.0.0.0/0</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (no all-ports rule)</div>
+<pre># sg-restricted-ssh only allows port 22 from 10.0.0.0/8 — compliant.</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">vpc-security-group-orphan</span><span class="badge should">SHOULD</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (targets = [])</div>
+<pre># sg-open-ssh, sg-wide-open — all the security groups above have no attached instances.</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (attached to an instance)</div>
+<pre>INST_ID=$(ibmcloud is instances --output json | jq -r '.[] | select(.name=="running-instance") | .id')
+SG_ID=$(ibmcloud is security-groups --output json | jq -r '.[] | select(.name=="sg-restricted-ssh") | .id')
+ibmcloud is instance-network-interface-update $INST_ID \
+  $(ibmcloud is instance-network-interfaces $INST_ID --output json | jq -r '.[0].id') \
+  --security-groups $SG_ID</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">vpc-security-group-missing-owner-tag</span><span class="badge must">MUST</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (no owner tag)</div>
+<pre># sg-open-ssh has no owner tag.</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant</div>
+<pre>SG2_ID=$(ibmcloud is security-groups --output json | jq -r '.[] | select(.name=="sg-restricted-ssh") | .id')
+ibmcloud resource tag-attach --tag-names "owner:team-alpha" --resource-id "$SG2_ID"</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">vpc-network-acl-open-ssh</span><span class="badge must">MUST</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (ACL ALLOW port 22 from 0.0.0.0/0)</div>
+<pre>ibmcloud is network-acl-create acl-open-ssh $VPC_ID --resource-group-name governance-tests
+ACL_ID=$(ibmcloud is network-acls --output json | jq -r '.[] | select(.name=="acl-open-ssh") | .id')
+ibmcloud is network-acl-rule-add $ACL_ID allow inbound tcp 0.0.0.0/0 0.0.0.0/0 \
+  --destination-port-min 22 --destination-port-max 22</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (SSH not allowed from 0.0.0.0/0)</div>
+<pre>ibmcloud is network-acl-create acl-restricted $VPC_ID --resource-group-name governance-tests
+ACL2_ID=$(ibmcloud is network-acls --output json | jq -r '.[] | select(.name=="acl-restricted") | .id')
+ibmcloud is network-acl-rule-add $ACL2_ID allow inbound tcp 10.0.0.0/8 0.0.0.0/0 \
+  --destination-port-min 22 --destination-port-max 22
+# Add deny-all as last rule:
+ibmcloud is network-acl-rule-add $ACL2_ID deny inbound all 0.0.0.0/0 0.0.0.0/0 \
+  --before-rule-name first-rule 2&gt;/dev/null || true</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">vpc-network-acl-open-rdp</span><span class="badge must">MUST</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (ACL ALLOW port 3389 from 0.0.0.0/0)</div>
+<pre>ibmcloud is network-acl-create acl-open-rdp $VPC_ID --resource-group-name governance-tests
+ACL_RDP=$(ibmcloud is network-acls --output json | jq -r '.[] | select(.name=="acl-open-rdp") | .id')
+ibmcloud is network-acl-rule-add $ACL_RDP allow inbound tcp 0.0.0.0/0 0.0.0.0/0 \
+  --destination-port-min 3389 --destination-port-max 3389</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant</div>
+<pre># acl-restricted above does not allow RDP — compliant.</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">vpc-network-acl-no-deny-all</span><span class="badge should">SHOULD</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (last inbound rule is not deny)</div>
+<pre># acl-open-ssh last rule is ALLOW, not DENY — non-compliant.</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (last inbound rule is deny-all)</div>
+<pre># acl-restricted ends with a deny-all inbound rule:
+ACL2_ID=$(ibmcloud is network-acls --output json | jq -r '.[] | select(.name=="acl-restricted") | .id')
+RULES=$(ibmcloud is network-acl-rules $ACL2_ID --output json)
+echo "$RULES" | jq '.[] | select(.direction=="inbound") | {action:.action, protocol:.protocol}' | tail -1</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">vpc-public-gateway-missing-owner-tag</span><span class="badge must">MUST</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant</div>
+<pre>ibmcloud is public-gateway-create pgw-test $VPC_ID us-south-1 \
+  --resource-group-name governance-tests</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant</div>
+<pre>PGW_ID=$(ibmcloud is public-gateways --output json | jq -r '.[] | select(.name=="pgw-test") | .id')
+ibmcloud resource tag-attach --tag-names "owner:team-alpha" --resource-id "$PGW_ID"</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">vpc-transit-gateway-not-available / vpc-transit-gateway-no-connections / vpc-transit-gateway-missing-owner-tag / vpc-transit-gateway-stale</span><span class="badge must">MUST</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant</div>
+<pre># Install Transit Gateway plugin:
+ibmcloud plugin install tg
+
+# Create a transit gateway with no connections:
+ibmcloud tg gateway-create tgw-test --location us-south --routing local \
+  --resource-group-name governance-tests
+TGW_ID=$(ibmcloud tg gateways --output json | jq -r '.[] | select(.name=="tgw-test") | .id')
+# no-connections: tgw-test has no connections — non-compliant.
+# not-available: status is pending/failed — organic fault.
+# stale: time-dependent — must be &gt; 730 days old.
+# missing-owner-tag: do NOT tag tgw-test.</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant</div>
+<pre># Add a connection and owner tag:
+ibmcloud tg connection-create $TGW_ID --name conn-test \
+  --network-type vpc --network-id $VPC_ID
+ibmcloud resource tag-attach --tag-names "owner:team-alpha" --resource-id "$TGW_ID"</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">vpc-vpn-gateway-not-available / vpc-vpn-gateway-missing-owner-tag</span><span class="badge must">MUST</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant</div>
+<pre>ibmcloud is vpn-gateway-create vpngw-test $SUBNET_ID \
+  --resource-group-name governance-tests
+# not-available: status changes to pending during creation; briefly non-compliant.
+# missing-owner-tag: do NOT tag vpngw-test.</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant</div>
+<pre>VPNGW_ID=$(ibmcloud is vpn-gateways --output json | jq -r '.[] | select(.name=="vpngw-test") | .id')
+ibmcloud resource tag-attach --tag-names "owner:team-alpha" --resource-id "$VPNGW_ID"
+# Wait for available status: ibmcloud is vpn-gateway vpngw-test --output json | jq '.status'</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">vpc-load-balancer-no-https / vpc-load-balancer-not-active / vpc-load-balancer-missing-owner-tag</span><span class="badge must">MUST</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant</div>
+<pre># Create LB with only HTTP listener (no HTTPS):
+ibmcloud is load-balancer-create lb-no-https public \
+  --subnets $SUBNET_ID \
+  --resource-group-name governance-tests
+LB_ID=$(ibmcloud is load-balancers --output json | jq -r '.[] | select(.name=="lb-no-https") | .id')
+# Wait for active, then add HTTP listener only:
+ibmcloud is load-balancer-listener-create $LB_ID 80 http
+# no-https: only HTTP listener — non-compliant.
+# missing-owner-tag: do NOT tag lb-no-https.</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant</div>
+<pre># Create LB with HTTPS listener (requires SSL certificate):
+ibmcloud is load-balancer-create lb-https public \
+  --subnets $SUBNET_ID \
+  --resource-group-name approved-resource-group
+LB2_ID=$(ibmcloud is load-balancers --output json | jq -r '.[] | select(.name=="lb-https") | .id')
+# Add HTTPS listener (requires a certificate CRN):
+# ibmcloud is load-balancer-listener-create $LB2_ID 443 https --certificate-instance $CERT_CRN
+ibmcloud resource tag-attach --tag-names "owner:team-alpha" --resource-id "$LB2_ID"</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">vpc-floating-ip-unattached / vpc-floating-ip-missing-owner-tag</span><span class="badge must">MUST</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (unattached)</div>
+<pre>ibmcloud is floating-ip-reserve fip-unattached --zone us-south-1 \
+  --resource-group-name governance-tests</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (attached to an instance NIC)</div>
+<pre>INST_ID=$(ibmcloud is instances --output json | jq -r '.[] | select(.name=="running-instance") | .id')
+NIC_ID=$(ibmcloud is instance-network-interfaces $INST_ID --output json | jq -r '.[0].id')
+ibmcloud is floating-ip-reserve fip-attached --zone us-south-1 \
+  --nic-id $NIC_ID --resource-group-name governance-tests
+FIP_ID=$(ibmcloud is floating-ips --output json | jq -r '.[] | select(.name=="fip-attached") | .id')
+ibmcloud resource tag-attach --tag-names "owner:team-alpha" --resource-id "$FIP_ID"</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">vpc-ssh-key-rotation-overdue / vpc-ssh-key-missing-owner-tag</span><span class="badge should">SHOULD</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant</div>
+<pre># rotation-overdue: time-dependent — must be &gt; 365 days old.
+# missing-owner-tag: test-key has no owner tag.</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant</div>
+<pre>KEY_ID=$(ibmcloud is keys --output json | jq -r '.[] | select(.name=="test-key") | .id')
+ibmcloud resource tag-attach --tag-names "owner:team-alpha" --resource-id "$KEY_ID"</pre>
+</div>
+</div>
+</div>
+</div>
+
+
+<h2 id="vpc-storage">4. VPC Storage — vpc-storage.yaml</h2>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">vpc-volume-unattached</span><span class="badge should">SHOULD</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (unattached &gt; 30 days)</div>
+<pre>ibmcloud is volume-create vol-unattached us-south-1 --capacity 100 \
+  --resource-group-name governance-tests
+# Must wait 30 days, or use an existing unattached volume &gt; 30 days old.</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (attached)</div>
+<pre>INST_ID=$(ibmcloud is instances --output json | jq -r '.[] | select(.name=="running-instance") | .id')
+ibmcloud is volume-create vol-attached us-south-1 --capacity 100 \
+  --resource-group-name governance-tests
+VOL_ID=$(ibmcloud is volumes --output json | jq -r '.[] | select(.name=="vol-attached") | .id')
+ibmcloud is instance-volume-attachment-add running-instance-attachment $INST_ID $VOL_ID</pre>
+</div>
+</div>
+<p class="note">Time-dependent: unattached state must persist &gt; 30 days.</p>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">vpc-volume-no-customer-managed-key</span><span class="badge must">MUST</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (encryption = provider_managed)</div>
+<pre>ibmcloud is volume-create vol-provider-enc us-south-1 --capacity 100 \
+  --resource-group-name governance-tests
+# Default encryption is provider_managed — non-compliant.</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (customer-managed key)</div>
+<pre># Requires a KMS instance and root key (see KMS section):
+KMS_INSTANCE_ID=&lt;your-kms-instance-id&gt;
+ROOT_KEY_ID=&lt;your-root-key-id&gt;
+ibmcloud is volume-create vol-cmk-enc us-south-1 --capacity 100 \
+  --encryption-key "crn:v1:bluemix:public:kms:us-south:a/$ACCOUNT_ID:$KMS_INSTANCE_ID:key:$ROOT_KEY_ID" \
+  --resource-group-name governance-tests</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">vpc-volume-oversized</span><span class="badge can">CAN</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (capacity &gt; 2000 GiB)</div>
+<pre>ibmcloud is volume-create vol-oversized us-south-1 --capacity 2001 \
+  --resource-group-name governance-tests</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (capacity ≤ 2000 GiB)</div>
+<pre>ibmcloud is volume-create vol-normal us-south-1 --capacity 100 \
+  --resource-group-name governance-tests</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">vpc-snapshot-orphaned</span><span class="badge should">SHOULD</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (source volume deleted)</div>
+<pre># Create a volume, take a snapshot, then delete the volume:
+ibmcloud is volume-create vol-to-delete us-south-1 --capacity 50 \
+  --resource-group-name governance-tests
+VOL_DEL=$(ibmcloud is volumes --output json | jq -r '.[] | select(.name=="vol-to-delete") | .id')
+ibmcloud is snapshot-create snap-orphan --volume $VOL_DEL \
+  --resource-group-name governance-tests
+ibmcloud is volume-delete $VOL_DEL --force
+# snap-orphan now has no source volume — orphaned.</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (source volume exists)</div>
+<pre>VOL_ID=$(ibmcloud is volumes --output json | jq -r '.[] | select(.name=="vol-normal") | .id')
+ibmcloud is snapshot-create snap-active --volume $VOL_ID \
+  --resource-group-name governance-tests</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">vpc-snapshot-stale / vpc-snapshot-no-customer-managed-key / vpc-snapshot-not-stable</span><span class="badge can">CAN</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant</div>
+<pre># stale: time-dependent — must be &gt; 365 days old.
+# no-customer-managed-key: snap-active uses provider_managed by default.
+# not-stable: snapshot briefly in pending state during creation.</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant</div>
+<pre># Wait for stable state:
+ibmcloud is snapshot snap-active --output json | jq '.lifecycle_state'
+# For CMK: create snapshot from a CMK-encrypted volume.</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">vpc-backup-policy-unused / vpc-backup-policy-no-matching-tags / vpc-backup-policy-not-stable</span><span class="badge should">SHOULD</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant</div>
+<pre># Create a backup policy with no plans and no match_user_tags:
+ibmcloud is backup-policy-create bp-unused \
+  --resource-group-name governance-tests
+# bp-unused: no plans = unused; match_user_tags = [] = no-matching-tags.
+# not-stable: briefly pending during creation.</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant</div>
+<pre>ibmcloud is backup-policy-create bp-active \
+  --match-user-tags "backup:daily" \
+  --resource-group-name governance-tests
+BP_ID=$(ibmcloud is backup-policies --output json | jq -r '.[] | select(.name=="bp-active") | .id')
+# Add a plan:
+ibmcloud is backup-policy-plan-create $BP_ID --cron-spec "0 2 * * *" --name daily-plan</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">vpc-file-share-no-mount-targets / vpc-file-share-no-customer-managed-key / vpc-file-share-not-stable / vpc-file-share-oversized / vpc-file-share-missing-owner-tag</span><span class="badge should">SHOULD</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant</div>
+<pre># Create file share with no mount targets, provider encryption, 10001 GiB:
+ibmcloud is share-create fs-no-mount --zone us-south-1 --size 10001 \
+  --profile dp2 --resource-group-name governance-tests
+# no-mount-targets: no mount targets added.
+# no-customer-managed-key: provider_managed by default.
+# oversized: size 10001 &gt; 10000.
+# missing-owner-tag: do NOT tag.</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant</div>
+<pre>ibmcloud is share-create fs-mounted --zone us-south-1 --size 100 \
+  --profile dp2 --resource-group-name governance-tests
+FS_ID=$(ibmcloud is shares --output json | jq -r '.[] | select(.name=="fs-mounted") | .id')
+# Add mount target:
+ibmcloud is share-mount-target-create $FS_ID --name mt-test --subnet $SUBNET_ID
+ibmcloud resource tag-attach --tag-names "owner:team-alpha" --resource-id "$FS_ID"</pre>
+</div>
+</div>
+<p class="note">IBM Cloud File Storage max size may be limited by profile. Verify <code>ibmcloud is share-profiles</code> for maximum capacity.</p>
+</div>
+</div>
+
+
+<h2 id="cos">5. Cloud Object Storage — cos.yaml</h2>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">cos-bucket-public-access</span><span class="badge must">MUST</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (public ACL enabled)</div>
+<pre># Create COS instance first:
+ibmcloud resource service-instance-create cos-test cloud-object-storage standard global \
+  --resource-group-name governance-tests
+
+# Get service instance ID:
+COS_GUID=$(ibmcloud resource service-instance cos-test --output json | jq -r '.[0].guid')
+
+# Create bucket with public access:
+HMAC_KEY=$(ibmcloud resource service-key-create cos-key Manager \
+  --instance-name cos-test --parameters '{"HMAC":true}' --output json | jq -r '.credentials')
+ACCESS_KEY=$(echo $HMAC_KEY | jq -r '.cos_hmac_keys.access_key_id')
+SECRET_KEY=$(echo $HMAC_KEY | jq -r '.cos_hmac_keys.secret_access_key')
+
+# Use s3cmd or aws cli:
+aws configure set aws_access_key_id $ACCESS_KEY
+aws configure set aws_secret_access_key $SECRET_KEY
+aws --endpoint-url https://s3.us-south.cloud-object-storage.appdomain.cloud \
+  s3api create-bucket --bucket public-test-bucket
+aws --endpoint-url https://s3.us-south.cloud-object-storage.appdomain.cloud \
+  s3api put-bucket-acl --bucket public-test-bucket --acl public-read</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (private ACL)</div>
+<pre>aws --endpoint-url https://s3.us-south.cloud-object-storage.appdomain.cloud \
+  s3api create-bucket --bucket private-test-bucket
+# Default ACL is private — compliant.</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">cos-bucket-no-customer-managed-key</span><span class="badge must">MUST</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (IBMSSEKPEnabled = false)</div>
+<pre># private-test-bucket and public-test-bucket above use IBM-managed keys.</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (Key Protect key)</div>
+<pre># Requires a Key Protect instance with a root key (see KMS section).
+# Then create bucket with SSE-KP:
+aws --endpoint-url https://s3.us-south.cloud-object-storage.appdomain.cloud \
+  s3api create-bucket --bucket kp-encrypted-bucket
+# Apply KP header using ibmcloud cos CLI:
+ibmcloud cos bucket-create --bucket kp-encrypted-bucket --ibm-service-instance-id $COS_GUID \
+  --region us-south --ibm-sse-kp-encryption-algorithm AES256 \
+  --ibm-sse-kp-customer-root-key-crn "crn:v1:bluemix:public:kms:us-south:..."</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">cos-bucket-versioning-disabled</span><span class="badge should">SHOULD</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (versioning off)</div>
+<pre># All buckets above have no versioning enabled.</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (versioning on)</div>
+<pre>aws --endpoint-url https://s3.us-south.cloud-object-storage.appdomain.cloud \
+  s3api put-bucket-versioning --bucket private-test-bucket \
+  --versioning-configuration Status=Enabled</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">cos-bucket-no-lifecycle-policy</span><span class="badge should">SHOULD</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (no lifecycle rules)</div>
+<pre># public-test-bucket has no lifecycle policy.</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (has lifecycle rules)</div>
+<pre>aws --endpoint-url https://s3.us-south.cloud-object-storage.appdomain.cloud \
+  s3api put-bucket-lifecycle-configuration --bucket private-test-bucket \
+  --lifecycle-configuration '{"Rules":[{"ID":"expire-old","Status":"Enabled","Filter":{"Prefix":""},"Expiration":{"Days":365}}]}'</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">cos-bucket-stale</span><span class="badge can">CAN</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (age &gt; 365 days)</div>
+<pre># Time-dependent — identify buckets &gt; 1 year old via IBM Cloud console.</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (freshly created)</div>
+<pre># private-test-bucket and public-test-bucket created above are fresh.</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">cos-bucket-missing-owner-tag</span><span class="badge must">MUST</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant</div>
+<pre># public-test-bucket has no owner tag.</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant</div>
+<pre>BUCKET_CRN=$(ibmcloud resource search "type:bucket name:private-test-bucket" --output json | jq -r '.items[0].crn')
+ibmcloud resource tag-attach --tag-names "owner:team-alpha" --resource-id "$BUCKET_CRN"</pre>
+</div>
+</div>
+</div>
+</div>
+
+
+<h2 id="kms">6. Key Management Service — kms.yaml</h2>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">kms-key-no-rotation-policy</span><span class="badge must">MUST</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (no rotation policy)</div>
+<pre># Create KMS instance:
+ibmcloud resource service-instance-create kms-test kms tiered-pricing us-south \
+  --resource-group-name governance-tests
+KMS_ID=$(ibmcloud resource service-instance kms-test --output json | jq -r '.[0].id')
+KMS_GUID=$(ibmcloud resource service-instance kms-test --output json | jq -r '.[0].guid')
+
+# Create a root key (auto-activated, no rotation policy by default):
+ibmcloud kp key create key-no-rotation -i $KMS_GUID
+KEY_ID=$(ibmcloud kp keys -i $KMS_GUID --output json | jq -r '.[] | select(.name=="key-no-rotation") | .id')</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (rotation policy enabled)</div>
+<pre>ibmcloud kp key create key-with-rotation -i $KMS_GUID
+KEY2_ID=$(ibmcloud kp keys -i $KMS_GUID --output json | jq -r '.[] | select(.name=="key-with-rotation") | .id')
+# Enable rotation policy (rotate every 90 days):
+ibmcloud kp key rotation-policy-set $KEY2_ID -i $KMS_GUID --rotation-interval 3</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">kms-key-deactivated / kms-key-disabled-review</span><span class="badge must">MUST</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (state = deactivated)</div>
+<pre># Deactivate a key (requires the key to be in active state first, then expired):
+# Deactivation occurs when the key's expiry date passes.
+# Set expiry to past via IBM Cloud console, or use key retire/revoke:
+ibmcloud kp key create key-to-deactivate -i $KMS_GUID
+DEACT_ID=$(ibmcloud kp keys -i $KMS_GUID --output json | jq -r '.[] | select(.name=="key-to-deactivate") | .id')
+# Retire (deactivate) the key:
+ibmcloud kp key retire $DEACT_ID -i $KMS_GUID</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (state = active)</div>
+<pre># key-with-rotation is in active state — compliant.</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">kms-key-rotation-overdue</span><span class="badge should">SHOULD</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (age &gt; 365 days)</div>
+<pre># Time-dependent: must be an existing key older than 365 days.
+ibmcloud kp keys -i $KMS_GUID --output json | jq '.[] | {name:.name, created:.creationDate}'</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (freshly created)</div>
+<pre># key-with-rotation is freshly created — compliant.</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">kms-key-pre-activation</span><span class="badge should">SHOULD</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (state = pre-activation)</div>
+<pre># Symmetric keys created via API start in pre-activation state.
+# Use the Key Protect API directly:
+BEARER=$(ibmcloud iam oauth-tokens --output json | jq -r '.iam_token')
+curl -X POST "https://us-south.kms.cloud.ibm.com/api/v2/keys" \
+  -H "Authorization: $BEARER" \
+  -H "bluemix-instance: $KMS_GUID" \
+  -H "Content-Type: application/vnd.ibm.kms.key+json" \
+  -d '{"metadata":{"collectionType":"application/vnd.ibm.kms.key+json","collectionTotal":1},"resources":[{"type":"application/vnd.ibm.kms.key+json","name":"key-pre-activation","extractable":true,"payload":"dGVzdC1wYXlsb2FkMTIzNDU2Nzg="}]}'</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (state = active)</div>
+<pre># Standard root key created via ibmcloud kp key create is auto-activated.</pre>
+</div>
+</div>
+<p class="note">IBM Key Protect auto-activates root keys on creation. Only symmetric (extractable) keys created via the API start in pre-activation state.</p>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">kms-key-ring-empty / kms-key-ring-non-standard-name</span><span class="badge should">SHOULD</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant</div>
+<pre># Create an empty key ring with a non-standard name:
+ibmcloud kp key-ring create nonstandard-ring -i $KMS_GUID
+# empty: no keys in this ring.
+# non-standard-name: id "nonstandard-ring" is not in the allowed list ["default"].</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant</div>
+<pre># The "default" key ring is the standard name AND contains keys — compliant for both checks.
+# To test non-standard-name compliant: create ring named "default" (already exists).</pre>
+</div>
+</div>
+</div>
+</div>
+
+
+<h2 id="kubernetes">7. Kubernetes / OpenShift — kubernetes.yaml</h2>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">iks-cluster-eol-version</span><span class="badge must">MUST</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (version &lt; 1.29)</div>
+<pre># Create a cluster with an older Kubernetes version:
+ibmcloud ks cluster create vpc-gen2 \
+  --name iks-eol-test \
+  --zone us-south-1 \
+  --version 1.28 \
+  --flavor bx2.4x16 \
+  --workers 1 \
+  --vpc-id $VPC_ID \
+  --subnet-id $SUBNET_ID \
+  --resource-group-name governance-tests
+# Note: only versions still supported by IBM are available — use the lowest available.</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (version ≥ 1.29)</div>
+<pre>ibmcloud ks cluster create vpc-gen2 \
+  --name iks-current-test \
+  --zone us-south-1 \
+  --version 1.30 \
+  --flavor bx2.4x16 \
+  --workers 1 \
+  --vpc-id $VPC_ID \
+  --subnet-id $SUBNET_ID \
+  --resource-group-name approved-resource-group</pre>
+</div>
+</div>
+<p class="note">IKS clusters take 15–20 minutes to provision. Incur significant cost — delete after testing.</p>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">iks-cluster-not-normal / iks-cluster-public-endpoint-enabled / iks-cluster-missing-owner-tag / iks-cluster-wrong-resource-group</span><span class="badge must">MUST</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant</div>
+<pre># not-normal: cluster briefly in deploying state during creation.
+# public-endpoint-enabled: iks-eol-test has disablePublicServiceEndpoint=false by default.
+# missing-owner-tag: do NOT tag iks-eol-test.
+# wrong-resource-group: iks-eol-test is in governance-tests.</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant</div>
+<pre>CLUSTER_ID=$(ibmcloud ks cluster get iks-current-test --output json | jq -r '.id')
+# Disable public endpoint:
+ibmcloud ks cluster master private-service-endpoint enable --cluster iks-current-test
+# Tag:
+ibmcloud resource tag-attach --tag-names "owner:team-alpha,environment:production" \
+  --resource-id "$CLUSTER_ID"</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">roks-cluster-eol-version / roks-cluster-not-normal / roks-cluster-public-endpoint-enabled / roks-cluster-missing-owner-tag</span><span class="badge must">MUST</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant</div>
+<pre># Create a ROKS cluster with older OpenShift version:
+ibmcloud ks cluster create vpc-gen2 \
+  --name roks-eol-test \
+  --zone us-south-1 \
+  --version 4.11_openshift \
+  --flavor bx2.4x16 \
+  --workers 2 \
+  --vpc-id $VPC_ID \
+  --subnet-id $SUBNET_ID \
+  --resource-group-name governance-tests</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant</div>
+<pre>ibmcloud ks cluster create vpc-gen2 \
+  --name roks-current-test \
+  --zone us-south-1 \
+  --version 4.14_openshift \
+  --flavor bx2.4x16 \
+  --workers 2 \
+  --vpc-id $VPC_ID \
+  --subnet-id $SUBNET_ID \
+  --resource-group-name approved-resource-group
+ROKS_ID=$(ibmcloud ks cluster get roks-current-test --output json | jq -r '.id')
+ibmcloud resource tag-attach --tag-names "owner:team-alpha" --resource-id "$ROKS_ID"</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">iks-worker-pool-empty / iks-worker-pool-missing-owner-tag</span><span class="badge should">SHOULD</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant</div>
+<pre># Create a worker pool with 0 workers:
+ibmcloud ks worker-pool create vpc-gen2 \
+  --cluster iks-current-test \
+  --name empty-pool \
+  --flavor bx2.4x16 \
+  --size-per-zone 0 \
+  --vpc-id $VPC_ID
+# missing-owner-tag: worker pools inherit cluster tags but can have their own.</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant</div>
+<pre>ibmcloud ks worker-pool create vpc-gen2 \
+  --cluster iks-current-test \
+  --name active-pool \
+  --flavor bx2.4x16 \
+  --size-per-zone 1 \
+  --vpc-id $VPC_ID \
+  --label owner=team-alpha
+ibmcloud ks worker-pool zone add \
+  --cluster iks-current-test \
+  --worker-pool active-pool \
+  --zone us-south-1 \
+  --subnet-id $SUBNET_ID</pre>
+</div>
+</div>
+</div>
+</div>
+
+
+<h2 id="powervs">8. Power Virtual Server — powervs.yaml</h2>
+
+<p class="section-note">PowerVS resources require a Power Systems Virtual Server workspace. Create one in us-south (DAL12) before running these commands.</p>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">PowerVS prerequisites</span><span class="badge should">SHOULD</span></div>
+<div class="policy-body">
+<pre># Create a PowerVS workspace (service instance):
+ibmcloud resource service-instance-create pvs-test power-iaas power-virtual-server-10 dal12 \
+  --resource-group-name governance-tests
+
+PVS_ID=$(ibmcloud resource service-instance pvs-test --output json | jq -r '.[0].guid')
+
+# Set PowerVS workspace:
+ibmcloud pi workspace target $PVS_ID
+
+# Get available images and networks:
+ibmcloud pi images --output json | jq '.[].name'
+ibmcloud pi networks --output json | jq '.[].name'</pre>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">powervs-instance-error-state</span><span class="badge must">MUST</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (status = ERROR)</div>
+<pre># ERROR state occurs organically (bad image, storage fault, etc.).
+# Observable-only: monitor existing instances for ERROR state.
+ibmcloud pi instances --output json | jq '.[] | select(.status=="ERROR") | .serverName'</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (status ≠ ERROR)</div>
+<pre>ibmcloud pi instances --output json | jq '.[] | select(.status=="ACTIVE") | .serverName'</pre>
+</div>
+</div>
+<p class="note">ERROR state cannot be synthetically created. The filter logic can be unit-tested with mock data in test_governance_policies.py.</p>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">powervs-instance-shutoff-stale</span><span class="badge should">SHOULD</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (SHUTOFF &gt; 30 days)</div>
+<pre># Create and stop an instance, then wait 30 days:
+NET_ID=$(ibmcloud pi networks --output json | jq -r '.[0].networkID')
+IMG_ID=$(ibmcloud pi images --output json | jq -r '.[0].imageID')
+ibmcloud pi instance-create pvs-shutoff-test --image $IMG_ID \
+  --memory 4 --processors 0.25 --processor-type shared \
+  --network id=$NET_ID --storage-type tier3
+INST_ID=$(ibmcloud pi instances --output json | jq -r '.[] | select(.serverName=="pvs-shutoff-test") | .pvmInstanceID')
+ibmcloud pi instance-stop $INST_ID</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (ACTIVE, or stopped &lt; 30 days)</div>
+<pre>ibmcloud pi instance-create pvs-active-test --image $IMG_ID \
+  --memory 4 --processors 0.25 --processor-type shared \
+  --network id=$NET_ID --storage-type tier3</pre>
+</div>
+</div>
+<p class="note">Time-dependent: must wait 30 days in SHUTOFF state.</p>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">powervs-instance-dedicated-no-justification</span><span class="badge can">CAN</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (dedicated + no tag)</div>
+<pre>ibmcloud pi instance-create pvs-dedicated-test --image $IMG_ID \
+  --memory 4 --processors 1 --processor-type dedicated \
+  --network id=$NET_ID --storage-type tier3</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (dedicated + has justification tag)</div>
+<pre>INST_ID2=$(ibmcloud pi instances --output json | jq -r '.[] | select(.serverName=="pvs-dedicated-test") | .pvmInstanceID')
+# PowerVS uses user-data/metadata for tags via Global Tagging API:
+ibmcloud resource tag-attach --tag-names "dedicated-justification:high-perf-workload" \
+  --resource-id "$(ibmcloud pi instance $INST_ID2 --output json | jq -r '.crn')"</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">powervs-instance-oversized-processors</span><span class="badge can">CAN</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (processors &gt; 4)</div>
+<pre>ibmcloud pi instance-create pvs-oversized-test --image $IMG_ID \
+  --memory 32 --processors 5 --processor-type shared \
+  --network id=$NET_ID --storage-type tier3</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (processors ≤ 4)</div>
+<pre>ibmcloud pi instance-create pvs-normal-test --image $IMG_ID \
+  --memory 8 --processors 2 --processor-type shared \
+  --network id=$NET_ID --storage-type tier3</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">powervs-instance-oversized-memory</span><span class="badge can">CAN</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (memory &gt; 256 GiB)</div>
+<pre>ibmcloud pi instance-create pvs-big-mem-test --image $IMG_ID \
+  --memory 512 --processors 2 --processor-type shared \
+  --network id=$NET_ID --storage-type tier3</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (memory ≤ 256 GiB)</div>
+<pre># pvs-normal-test has 8 GiB — compliant.</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">powervs-instance-capped-high-entitlement</span><span class="badge should">SHOULD</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (capped + processors &gt; 2)</div>
+<pre>ibmcloud pi instance-create pvs-capped-test --image $IMG_ID \
+  --memory 8 --processors 3 --processor-type capped \
+  --network id=$NET_ID --storage-type tier3</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (capped ≤ 2 processors)</div>
+<pre>ibmcloud pi instance-create pvs-capped-ok --image $IMG_ID \
+  --memory 4 --processors 1 --processor-type capped \
+  --network id=$NET_ID --storage-type tier3</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">powervs-instance-missing-owner-tag</span><span class="badge should">SHOULD</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant</div>
+<pre># pvs-shutoff-test and pvs-active-test have no owner tag.</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant</div>
+<pre>INST_CRN=$(ibmcloud pi instance $INST_ID2 --output json | jq -r '.crn')
+ibmcloud resource tag-attach --tag-names "owner:team-alpha" --resource-id "$INST_CRN"</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">powervs-volume-unattached / powervs-volume-shareable / powervs-volume-oversized / powervs-volume-tier1-unattached / powervs-volume-missing-owner-tag / powervs-volume-missing-environment-tag</span><span class="badge should">SHOULD</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant</div>
+<pre># unattached: create a standalone volume:
+ibmcloud pi volume-create pvs-vol-unattached --size 100 --type tier3
+
+# shareable: create with shareable=true:
+ibmcloud pi volume-create pvs-vol-shared --size 100 --type tier3 --shareable
+
+# oversized: size &gt; 2000 GiB:
+ibmcloud pi volume-create pvs-vol-oversized --size 2001 --type tier3
+
+# tier1-unattached: tier1 volume not attached:
+ibmcloud pi volume-create pvs-vol-tier1-idle --size 100 --type tier1</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant</div>
+<pre># Attach a volume to an instance:
+VOL_ID=$(ibmcloud pi volumes --output json | jq -r '.[] | select(.name=="pvs-vol-unattached") | .volumeID')
+INST_PVS=$(ibmcloud pi instances --output json | jq -r '.[] | select(.serverName=="pvs-active-test") | .pvmInstanceID')
+ibmcloud pi instance-attach-volume $INST_PVS $VOL_ID
+
+# Tag a volume:
+VOL_CRN=$(ibmcloud pi volume $VOL_ID --output json | jq -r '.crn')
+ibmcloud resource tag-attach --tag-names "owner:team-alpha,environment:production" \
+  --resource-id "$VOL_CRN"</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">powervs-network-public-type / powervs-network-missing-owner-tag</span><span class="badge must">MUST</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant</div>
+<pre># Create a public network (pub-vlan type):
+ibmcloud pi network-create-public pvs-public-net --dns-servers "8.8.8.8"
+# type will be pub-vlan — non-compliant for public-type.
+# missing-owner-tag: do NOT tag.</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant</div>
+<pre># Create a private network:
+ibmcloud pi network-create-private pvs-private-net --cidr 192.168.10.0/24 \
+  --dns-servers "9.9.9.9"
+NET_CRN=$(ibmcloud pi network pvs-private-net --output json | jq -r '.crn')
+ibmcloud resource tag-attach --tag-names "owner:team-alpha" --resource-id "$NET_CRN"</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">powervs-image-stale / powervs-image-not-active</span><span class="badge can">CAN</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant</div>
+<pre># stale: time-dependent — must be an imported image &gt; 365 days old.
+# not-active: image in importing/failed state (transient — during import).
+ibmcloud pi images --output json | jq '.[] | {name:.name, state:.state, created:.creationDate}'</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant</div>
+<pre># Import a fresh image (must use IBM stock image catalogue):
+ibmcloud pi image-import pvs-fresh-image --image-catalog "IBMi-75-01-2924-1" \
+  --storage-type tier3</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">powervs-ssh-key-rotation-overdue</span><span class="badge should">SHOULD</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (age &gt; 365 days)</div>
+<pre># Time-dependent — must be an existing PowerVS SSH key &gt; 365 days old.
+ibmcloud pi keys --output json | jq '.[] | {name:.name, created:.creationDate}'</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant</div>
+<pre>ibmcloud pi key-create pvs-fresh-key --key "$(cat ~/.ssh/id_rsa.pub)"</pre>
+</div>
+</div>
+</div>
+</div>
+
+
+<h2 id="dbaas">9. Databases — dbaas.yaml</h2>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">dbaas-postgresql-eol-version</span><span class="badge must">MUST</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (version &lt; 15)</div>
+<pre>ibmcloud resource service-instance-create pg-eol-test databases-for-postgresql standard us-south \
+  -p '{"version":"14"}' \
+  --resource-group-name governance-tests</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (version ≥ 15)</div>
+<pre>ibmcloud resource service-instance-create pg-current-test databases-for-postgresql standard us-south \
+  -p '{"version":"16"}' \
+  --resource-group-name approved-resource-group</pre>
+</div>
+</div>
+<p class="note">DBaaS instances take 5–10 minutes to provision. Incur cost — delete after testing.</p>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">dbaas-mysql-eol-version / dbaas-mongodb-eol-version / dbaas-redis-eol-version / dbaas-elasticsearch-eol-version / dbaas-rabbitmq-eol-version</span><span class="badge must">MUST</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (EOL versions)</div>
+<pre>ibmcloud resource service-instance-create mysql-eol databases-for-mysql standard us-south \
+  -p '{"version":"5.7"}' --resource-group-name governance-tests
+
+ibmcloud resource service-instance-create mongo-eol databases-for-mongodb standard us-south \
+  -p '{"version":"5.0"}' --resource-group-name governance-tests
+
+ibmcloud resource service-instance-create redis-eol databases-for-redis standard us-south \
+  -p '{"version":"6.2"}' --resource-group-name governance-tests
+
+ibmcloud resource service-instance-create rabbit-eol messages-for-rabbitmq standard us-south \
+  -p '{"version":"3.11"}' --resource-group-name governance-tests</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (current versions)</div>
+<pre>ibmcloud resource service-instance-create mysql-current databases-for-mysql standard us-south \
+  -p '{"version":"8.0"}' --resource-group-name approved-resource-group
+
+ibmcloud resource service-instance-create mongo-current databases-for-mongodb standard us-south \
+  -p '{"version":"6.0"}' --resource-group-name approved-resource-group
+
+ibmcloud resource service-instance-create redis-current databases-for-redis standard us-south \
+  -p '{"version":"7.0"}' --resource-group-name approved-resource-group</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">dbaas-postgresql-not-running</span><span class="badge must">MUST</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (state ≠ running)</div>
+<pre># pg-eol-test is in provisioning state briefly after creation.
+# A failed instance also qualifies — organic, triggered by provisioning errors.</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (state = running)</div>
+<pre>ibmcloud resource service-instance pg-current-test --output json | jq '.[0].last_operation'</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">dbaas-postgresql-public-endpoint</span><span class="badge should">SHOULD</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (public endpoint enabled)</div>
+<pre>ibmcloud resource service-instance-create pg-public-test databases-for-postgresql standard us-south \
+  -p '{"version":"16","endpoints":"public"}' \
+  --resource-group-name governance-tests</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (private only)</div>
+<pre>ibmcloud resource service-instance-create pg-private-test databases-for-postgresql standard us-south \
+  -p '{"version":"16","endpoints":"private"}' \
+  --resource-group-name approved-resource-group</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">dbaas-postgresql-non-standard-plan</span><span class="badge should">SHOULD</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (plan ≠ standard)</div>
+<pre># Create with the "enterprise" plan (not "standard"):
+ibmcloud resource service-instance-create pg-enterprise databases-for-postgresql enterprise us-south \
+  -p '{"version":"16"}' \
+  --resource-group-name governance-tests</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (plan = standard)</div>
+<pre># pg-current-test was created with "standard" plan — compliant.
+ibmcloud resource service-instance pg-current-test --output json | jq '.[0].resource_plan_id'</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">dbaas-postgresql-missing-owner-tag / dbaas-postgresql-low-memory / dbaas-postgresql-wrong-resource-group</span><span class="badge must">MUST</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant</div>
+<pre># missing-owner-tag: pg-eol-test has no owner tag.
+# low-memory: default provisioning may be &lt; 4096 MB — check with ibmcloud cdb deployments.
+# wrong-resource-group: pg-eol-test is in governance-tests.</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant</div>
+<pre>PG_CRN=$(ibmcloud resource service-instance pg-current-test --output json | jq -r '.[0].crn')
+ibmcloud resource tag-attach --tag-names "owner:team-alpha" --resource-id "$PG_CRN"
+
+# Scale memory to meet minimum:
+ibmcloud cdb deployment-groups-set pg-current-test member \
+  --memory 4096</pre>
+</div>
+</div>
+</div>
+</div>
+
+
+<h2 id="cross">10. Cross-Cutting — cross-cutting.yaml</h2>
+
+<p class="section-note">Cross-cutting policies repeat the same missing-owner, missing-environment, missing-cost-centre, wrong-resource-group, and marked-for-op checks across every resource type. The resource creation pattern is identical for each type — use the resource examples above, without adding the required tag. One representative example per check pattern is shown below.</p>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">cross-*-missing-owner (all resource types)</span><span class="badge must">MUST</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant pattern (any resource, no owner tag)</div>
+<pre># Pattern for all cross-*-missing-owner policies:
+# Create the resource WITHOUT adding an owner tag.
+# Example for vpc-instance:
+ibmcloud is instance-create no-owner-cross-test $VPC_ID us-south-1 bx2-2x8 $SUBNET_ID \
+  --image ibm-ubuntu-22-04-minimal-amd64-1 --keys $KEY_ID \
+  --resource-group-name governance-tests
+# Same pattern applies to: vpc-bare-metal, vpc-dedicated-host, vpc-volume,
+# vpc-snapshot, vpc-file-share, vpc-security-group, vpc-ssh-key,
+# cos-bucket, kms-key, iks-cluster, roks-cluster, powervs-instance,
+# powervs-volume, dbaas-postgresql (and all DBaaS engines), iam-service-id</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant pattern</div>
+<pre># Attach owner tag to any resource:
+RESOURCE_CRN=&lt;crn-of-resource&gt;
+ibmcloud resource tag-attach --tag-names "owner:team-alpha" --resource-id "$RESOURCE_CRN"</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">cross-*-missing-environment (vpc-instance, vpc-volume, cos-bucket, kms-key, iks-cluster, roks-cluster, powervs-instance, powervs-volume, dbaas-*)</span><span class="badge must">MUST</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (no environment tag)</div>
+<pre># vpc-instance example (no-owner-cross-test also lacks environment tag):
+ibmcloud is instance-create no-env-cross-test $VPC_ID us-south-1 bx2-2x8 $SUBNET_ID \
+  --image ibm-ubuntu-22-04-minimal-amd64-1 --keys $KEY_ID \
+  --resource-group-name governance-tests</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant</div>
+<pre>RESOURCE_CRN=&lt;crn&gt;
+ibmcloud resource tag-attach --tag-names "environment:production" --resource-id "$RESOURCE_CRN"</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">cross-*-missing-cost-centre (vpc-instance, cos-bucket, kms-key, iks-cluster, roks-cluster, powervs-instance, dbaas-postgresql)</span><span class="badge should">SHOULD</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (no cost-centre tag)</div>
+<pre># Any resource without the cost-centre tag is non-compliant.
+# vpc-instance example — same resource as above.</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant</div>
+<pre>RESOURCE_CRN=&lt;crn&gt;
+ibmcloud resource tag-attach --tag-names "cost-centre:CC-1234" --resource-id "$RESOURCE_CRN"</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">cross-*-wrong-resource-group (vpc-instance, vpc-volume, cos-bucket, iks-cluster, dbaas-postgresql)</span><span class="badge should">SHOULD</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (not in approved-resource-group)</div>
+<pre># Resources created under governance-tests above are non-compliant.
+ibmcloud is instances --output json | jq '.[] | select(.resource_group.name=="governance-tests") | .name'</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant</div>
+<pre># Resources created under approved-resource-group are compliant.
+ibmcloud is instances --output json | jq '.[] | select(.resource_group.name=="approved-resource-group") | .name'</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">cross-vpc-instance-marked-for-op / cross-vpc-volume-marked-for-op / cross-iam-service-id-marked-for-op</span><span class="badge should">SHOULD</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (marked, deadline passed)</div>
+<pre># For vpc-instance: first run cross-vpc-instance-stale-untagged on a resource &gt;365 days old.
+# For immediate test, manually apply the expired tag:
+RESOURCE_CRN=&lt;crn&gt;
+ibmcloud resource tag-attach --tag-names "custodian_status:delete@2000-01-01" \
+  --resource-id "$RESOURCE_CRN"</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (not marked)</div>
+<pre># Any resource without custodian_status tag is not matched.</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div class="policy-block">
+<div class="policy-header"><span class="policy-name">cross-vpc-instance-stale-untagged / cross-vpc-volume-stale-untagged / cross-cos-bucket-stale-untagged / cross-kms-key-stale-untagged</span><span class="badge can">CAN</span></div>
+<div class="policy-body">
+<div class="row">
+<div class="noncompliant"><div class="col-label">Non-compliant (age &gt; 365 days AND no owner tag)</div>
+<pre># Time-dependent: find existing resources &gt;365 days old without an owner tag:
+ibmcloud is instances --output json | \
+  jq '.[] | select((.created_at | fromdateiso8601) &lt; (now - 31536000)) | .name'</pre>
+</div>
+<div class="compliant"><div class="col-label">Compliant (has owner tag, or freshly created)</div>
+<pre># Any recently created resource with an owner tag is compliant for both conditions.</pre>
+</div>
+</div>
+<p class="note">Time-dependent: requires resources older than 365 days. In CI use mock data.</p>
+</div>
+</div>
+
+
+<h2 id="cleanup">Cleanup</h2>
+
+<div class="cleanup">
+<h3>Delete all test resources (run after testing)</h3>
+<pre># Instances
+for name in zombie-instance running-instance no-owner-instance wrong-zone-instance oversized-instance \
+            small-instance approved-rg-instance no-owner-cross-test no-env-cross-test; do
+  ID=$(ibmcloud is instances --output json | jq -r ".[] | select(.name==\"$name\") | .id")
+  [ -n "$ID" ] &amp;&amp; ibmcloud is instance-delete $ID --force
+done
+
+# Volumes
+for name in vol-unattached vol-attached vol-provider-enc vol-cmk-enc vol-oversized vol-normal \
+            vol-to-delete; do
+  ID=$(ibmcloud is volumes --output json | jq -r ".[] | select(.name==\"$name\") | .id")
+  [ -n "$ID" ] &amp;&amp; ibmcloud is volume-delete $ID --force
+done
+
+# Snapshots
+for name in snap-orphan snap-active; do
+  ID=$(ibmcloud is snapshots --output json | jq -r ".[] | select(.name==\"$name\") | .id")
+  [ -n "$ID" ] &amp;&amp; ibmcloud is snapshot-delete $ID --force
+done
+
+# File shares
+for name in fs-no-mount fs-mounted; do
+  ID=$(ibmcloud is shares --output json | jq -r ".[] | select(.name==\"$name\") | .id")
+  [ -n "$ID" ] &amp;&amp; ibmcloud is share-delete $ID --force
+done
+
+# Security groups, ACLs, gateways
+for name in sg-open-ssh sg-restricted-ssh sg-open-rdp sg-restricted-rdp sg-wide-open; do
+  ID=$(ibmcloud is security-groups --output json | jq -r ".[] | select(.name==\"$name\") | .id")
+  [ -n "$ID" ] &amp;&amp; ibmcloud is security-group-delete $ID --force
+done
+
+for name in acl-open-ssh acl-restricted acl-open-rdp; do
+  ID=$(ibmcloud is network-acls --output json | jq -r ".[] | select(.name==\"$name\") | .id")
+  [ -n "$ID" ] &amp;&amp; ibmcloud is network-acl-delete $ID --force
+done
+
+# Floating IPs, VPN gw, Load balancers
+ibmcloud is floating-ip-release fip-unattached --force 2&gt;/dev/null
+ibmcloud is floating-ip-release fip-attached --force 2&gt;/dev/null
+ibmcloud is vpn-gateway-delete vpngw-test --force 2&gt;/dev/null
+ibmcloud is load-balancer-delete lb-no-https --force 2&gt;/dev/null
+ibmcloud is load-balancer-delete lb-https --force 2&gt;/dev/null
+
+# Transit gateway
+TGW_ID=$(ibmcloud tg gateways --output json 2&gt;/dev/null | jq -r '.[] | select(.name=="tgw-test") | .id')
+[ -n "$TGW_ID" ] &amp;&amp; ibmcloud tg gateway-delete $TGW_ID --force
+
+# Subnets, VPCs
+for name in test-subnet test-subnet-2 tiny-subnet; do
+  ID=$(ibmcloud is subnets --output json | jq -r ".[] | select(.name==\"$name\") | .id")
+  [ -n "$ID" ] &amp;&amp; ibmcloud is subnet-delete $ID --force
+done
+
+for name in test-vpc empty-vpc approved-vpc; do
+  ID=$(ibmcloud is vpcs --output json | jq -r ".[] | select(.name==\"$name\") | .id")
+  [ -n "$ID" ] &amp;&amp; ibmcloud is vpc-delete $ID --force
+done
+
+# KMS
+ibmcloud kp key delete $KEY_ID -i $KMS_GUID --force 2&gt;/dev/null
+ibmcloud kp key delete $KEY2_ID -i $KMS_GUID --force 2&gt;/dev/null
+ibmcloud resource service-instance-delete kms-test --force 2&gt;/dev/null
+
+# COS
+ibmcloud resource service-instance-delete cos-test --force 2&gt;/dev/null
+
+# IKS/ROKS clusters
+ibmcloud ks cluster rm --cluster iks-eol-test --force 2&gt;/dev/null
+ibmcloud ks cluster rm --cluster iks-current-test --force 2&gt;/dev/null
+ibmcloud ks cluster rm --cluster roks-eol-test --force 2&gt;/dev/null
+ibmcloud ks cluster rm --cluster roks-current-test --force 2&gt;/dev/null
+
+# PowerVS
+for name in pvs-shutoff-test pvs-active-test pvs-dedicated-test pvs-oversized-test \
+            pvs-normal-test pvs-big-mem-test pvs-capped-test pvs-capped-ok; do
+  ID=$(ibmcloud pi instances --output json | jq -r ".[] | select(.serverName==\"$name\") | .pvmInstanceID")
+  [ -n "$ID" ] &amp;&amp; ibmcloud pi instance-delete $ID --force
+done
+ibmcloud resource service-instance-delete pvs-test --force 2&gt;/dev/null
+
+# DBaaS
+for name in pg-eol-test pg-current-test pg-public-test pg-private-test pg-enterprise \
+            mysql-eol mysql-current mongo-eol mongo-current redis-eol redis-current \
+            rabbit-eol; do
+  ibmcloud resource service-instance-delete $name --force 2&gt;/dev/null
+done
+
+# IAM
+ibmcloud iam service-id-delete no-desc-svc-id --force 2&gt;/dev/null
+ibmcloud iam service-id-delete fresh-svc-id --force 2&gt;/dev/null
+ibmcloud iam service-id-delete not-marked-svc-id --force 2&gt;/dev/null
+ibmcloud iam access-group-delete empty-test-group --force 2&gt;/dev/null
+ibmcloud iam access-group-delete nonempty-test-group --force 2&gt;/dev/null
+ibmcloud iam access-group-delete no-desc-access-group --force 2&gt;/dev/null
+ibmcloud iam access-group-delete described-access-group --force 2&gt;/dev/null
+ibmcloud iam trusted-profile-delete no-desc-trusted-profile --force 2&gt;/dev/null
+ibmcloud iam trusted-profile-delete described-trusted-profile --force 2&gt;/dev/null
+ibmcloud iam role-delete no-desc-custom-role --force 2&gt;/dev/null
+ibmcloud iam role-delete described-custom-role --force 2&gt;/dev/null
+
+
+# Resource groups
+ibmcloud resource group-delete governance-tests --force 2&gt;/dev/null
+ibmcloud resource group-delete approved-resource-group --force 2&gt;/dev/null</pre>
+</div>
+
+<footer>
+  <p>Made with IBM Bob</p>
+</footer>
+</div>
+</body>
+</html>

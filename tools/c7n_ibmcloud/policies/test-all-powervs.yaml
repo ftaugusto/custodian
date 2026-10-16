@@ -1,0 +1,6 @@
+policies:
+  - name: test-all-powervs-instances
+    resource: ibm.powervs-instance
+
+  - name: test-all-powervs-volumes
+    resource: ibm.powervs-volume

@@ -1,0 +1,431 @@
+
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>IBM Cloud Custodian — Governance Checks Reference</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "Segoe UI", system-ui, sans-serif; font-size: 14px; line-height: 1.6; color: #1f2328; background: #fff; padding: 32px 24px 64px; max-width: 1100px; margin: 0 auto; }
+  h1 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+  .subtitle { color: #57606a; font-size: 13px; margin-bottom: 28px; }
+  h2 { font-size: 15px; font-weight: 700; margin: 36px 0 10px; padding-bottom: 6px; border-bottom: 2px solid #e5e7eb; }
+  h3 { font-size: 13px; font-weight: 600; margin: 18px 0 6px; color: #3b82d4; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-bottom: 6px; }
+  th { background: #f7f8fa; text-align: left; padding: 6px 10px; font-weight: 600; border: 1px solid #e5e7eb; color: #1f2328; white-space: nowrap; }
+  td { padding: 5px 10px; border: 1px solid #e5e7eb; vertical-align: top; }
+  tr:nth-child(even) td { background: #fafafa; }
+  tr:hover td { background: #f0f6ff; }
+  .badge { display: inline-block; border-radius: 3px; padding: 1px 6px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+  .b-must   { background: #fee2e2; color: #b91c1c; }
+  .b-should { background: #fef3c7; color: #92400e; }
+  .b-can    { background: #dcfce7; color: #166534; }
+  .b-impl   { background: #dbeafe; color: #1d4ed8; }
+  .b-miss   { background: #f7f8fa; color: #57606a; border: 1px solid #e5e7eb; }
+  .a-safe   { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
+  .a-warn   { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
+  .a-danger { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 22px; align-items: center; font-size: 12px; }
+  .legend-item { display: flex; align-items: center; gap: 5px; }
+  code { font-family: ui-monospace, monospace; font-size: 11px; background: #f7f8fa; padding: 0 3px; border-radius: 2px; }
+  .section-intro { font-size: 13px; color: #57606a; margin-bottom: 10px; }
+  .note { font-size: 12px; color: #57606a; background: #f7f8fa; border-left: 3px solid #e5e7eb; padding: 8px 12px; margin: 8px 0 12px; border-radius: 0 4px 4px 0; }
+  .note strong { color: #1f2328; }
+  .action-chips { display: flex; flex-wrap: wrap; gap: 3px; }
+  footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid #e5e7eb; text-align: center; font-size: 12px; color: #57606a; }
+</style>
+</head>
+<body>
+
+<h1>IBM Cloud Custodian — Governance Checks Reference</h1>
+<p class="subtitle">Complete catalogue of checks for every resource type covered by <code>c7n_ibmcloud</code> — IAM, VPC, COS, KMS, IKS, PowerVS, and DBaaS.</p>
+
+<div class="legend">
+  <span style="font-weight:600;font-size:12px">Legend:</span>
+  <div class="legend-item"><span class="badge b-must">MUST</span> Security / compliance baseline</div>
+  <div class="legend-item"><span class="badge b-should">SHOULD</span> Strong operational hygiene</div>
+  <div class="legend-item"><span class="badge b-can">CAN</span> Optional / cost optimisation</div>
+  <div class="legend-item"><span class="badge b-impl">implemented</span> Dedicated filter/action in c7n_ibmcloud</div>
+  <div class="legend-item"><span class="badge b-miss">policy only</span> Works via <code>value</code> filter</div>
+  <div class="legend-item"><span class="badge a-safe">safe action</span> Non-destructive</div>
+  <div class="legend-item"><span class="badge a-warn">warn action</span> Modifies state</div>
+  <div class="legend-item"><span class="badge a-danger">danger action</span> Irreversible</div>
+</div>
+
+<h2>IAM</h2>
+
+<div class="note"><strong>Tagging constraints:</strong> <code>ibm.iam-user</code> and <code>ibm.iam-access-group</code> have no CRN field — GlobalTaggingV1 tagging is not available. <code>ibm.iam-api-key</code> also lacks a CRN in <code>list_api_keys</code>. Use the resource-specific actions listed below instead of <code>tag</code> or <code>mark-for-op</code> for IAM remediation.</div>
+
+<h3>ibm.iam-user</h3>
+<table>
+  <tr><th style="width:38%">Check</th><th style="width:8%">Level</th><th style="width:22%">Filter / key</th><th style="width:9%">Status</th><th>Recommended Actions</th></tr>
+  <tr><td>MFA not enrolled</td><td><span class="badge b-must">MUST</span></td><td><code>mfa-disabled</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-safe">add-to-review-group</span><span class="badge a-danger">delete</span></div></td></tr>
+  <tr><td>User in suspended state</td><td><span class="badge b-should">SHOULD</span></td><td><code>value key:state op:ne value:ACTIVE</code></td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-danger">delete</span></div></td></tr>
+  <tr><td>External (non-org) email domain</td><td><span class="badge b-can">CAN</span></td><td><code>value key:email op:glob value:*@external.com</code></td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-safe">add-to-review-group</span></div></td></tr>
+</table>
+<div class="note"><strong>add-to-review-group:</strong> Adds user to an existing IAM access group (requires <code>group_id</code> param). Non-destructive. <strong>delete:</strong> Calls <code>UserManagementV1.remove_user</code> — permanent.</div>
+
+<h3>ibm.iam-api-key</h3>
+<table>
+  <tr><th style="width:38%">Check</th><th style="width:8%">Level</th><th style="width:22%">Filter / key</th><th style="width:9%">Status</th><th>Recommended Actions</th></tr>
+  <tr><td>API key older than 180 days (rotation overdue)</td><td><span class="badge b-must">MUST</span></td><td><code>age op:gt days:180</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-warn">lock</span><span class="badge a-safe">append-description</span><span class="badge a-danger">delete</span></div></td></tr>
+  <tr><td>Unlocked API key past rotation age</td><td><span class="badge b-must">MUST</span></td><td><code>age</code> + <code>value key:locked value:false</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-warn">lock</span><span class="badge a-safe">append-description</span></div></td></tr>
+  <tr><td>Root/account-owner API keys in use</td><td><span class="badge b-must">MUST</span></td><td><code>value key:iam_id op:contains value:IBMid</code></td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-warn">lock</span><span class="badge a-safe">append-description</span><span class="badge a-danger">delete</span></div></td></tr>
+  <tr><td>API key with no description (unidentifiable)</td><td><span class="badge b-should">SHOULD</span></td><td><code>value key:description op:eq value:""</code></td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-warn">lock</span><span class="badge a-safe">append-description</span></div></td></tr>
+</table>
+<div class="note"><strong>No tagging support</strong> — <code>list_api_keys</code> returns no CRN. Available actions: <code>lock</code> / <code>unlock</code> (toggle usability), <code>append-description</code> (annotates via <code>IamIdentityV1.update_api_key</code>, idempotent, optional <code>notice</code> param, default <code>"[custodian] This API key requires review."</code>), <code>delete</code>.</div>
+
+<h3>ibm.iam-service-id</h3>
+<table>
+  <tr><th style="width:38%">Check</th><th style="width:8%">Level</th><th style="width:22%">Filter / key</th><th style="width:9%">Status</th><th>Recommended Actions</th></tr>
+  <tr><td>Service ID unused for over 365 days</td><td><span class="badge b-should">SHOULD</span></td><td><code>age op:gt days:365</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span><span class="badge a-safe">mark-for-op</span><span class="badge a-danger">delete</span></div></td></tr>
+  <tr><td>Service ID with no description</td><td><span class="badge b-should">SHOULD</span></td><td><code>value key:description op:absent</code></td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+  <tr><td>Missing owner tag</td><td><span class="badge b-can">CAN</span></td><td><code>tag key:owner op:absent</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+  <tr><td>Marked for operation past deadline</td><td><span class="badge b-should">SHOULD</span></td><td><code>marked-for-op</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-danger">delete</span></div></td></tr>
+</table>
+
+<h3>ibm.iam-access-group</h3>
+<table>
+  <tr><th style="width:38%">Check</th><th style="width:8%">Level</th><th style="width:22%">Filter / key</th><th style="width:9%">Status</th><th>Recommended Actions</th></tr>
+  <tr><td>Empty access groups (zero members)</td><td><span class="badge b-should">SHOULD</span></td><td><code>value key:member_count op:eq value:0</code></td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-safe">append-description</span><span class="badge a-danger">delete</span></div></td></tr>
+  <tr><td>Access group with no description (unidentifiable)</td><td><span class="badge b-should">SHOULD</span></td><td><code>value key:description op:eq value:""</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-safe">append-description</span><span class="badge a-danger">delete</span></div></td></tr>
+</table>
+<div class="note"><strong>append-description:</strong> Concatenates a custodian notice to the group's <code>description</code> via <code>IamAccessGroupsV2.update_access_group</code>. Fetches current ETag via <code>get_access_group</code> before updating. Idempotent. Optional <code>notice</code> param; default <code>"[custodian] This group requires review."</code> No tagging — <code>list_access_groups</code> returns no CRN.</div>
+
+<h3>ibm.iam-trusted-profile</h3>
+<table>
+  <tr><th style="width:38%">Check</th><th style="width:8%">Level</th><th style="width:22%">Filter / key</th><th style="width:9%">Status</th><th>Recommended Actions</th></tr>
+  <tr><td>Trusted profiles unused for over 180 days</td><td><span class="badge b-should">SHOULD</span></td><td><code>age op:gt days:180</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-safe">append-description</span><span class="badge a-danger">delete</span></div></td></tr>
+  <tr><td>Trusted profile with no description (unidentifiable)</td><td><span class="badge b-should">SHOULD</span></td><td><code>value key:description op:absent</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-safe">append-description</span><span class="badge a-danger">delete</span></div></td></tr>
+</table>
+<div class="note"><strong>append-description:</strong> Concatenates a custodian notice to the profile's <code>description</code> via <code>IamIdentityV1.update_profile</code>. Fetches current ETag via <code>get_profile</code> before updating. Idempotent. Optional <code>notice</code> param; default <code>"[custodian] This profile requires review."</code> <strong>Note:</strong> <code>list_profiles</code> returns <code>null</code> (not <code>""</code>) when description is absent — use <code>op:absent</code>.</div>
+
+<h3>ibm.iam-custom-role</h3>
+<table>
+  <tr><th style="width:38%">Check</th><th style="width:8%">Level</th><th style="width:22%">Filter / key</th><th style="width:9%">Status</th><th>Recommended Actions</th></tr>
+  <tr><td>Custom role with no description (unidentifiable)</td><td><span class="badge b-should">SHOULD</span></td><td><code>or:</code> <code>value key:description op:absent</code> / <code>value key:description op:eq value:""</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-safe">append-description</span><span class="badge a-danger">delete</span></div></td></tr>
+  <tr><td>Custom role older than 365 days (review for relevance)</td><td><span class="badge b-can">CAN</span></td><td><code>age op:gt days:365</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-safe">append-description</span><span class="badge a-danger">delete</span></div></td></tr>
+</table>
+<div class="note"><strong>append-description:</strong> Concatenates a custodian notice to the role's <code>description</code> via <code>IamPolicyManagementV1.replace_role</code> (full-replace endpoint). Fetches current ETag, <code>display_name</code>, and <code>actions</code> via <code>get_role</code> before updating — these fields are required by the API. Idempotent. Optional <code>notice</code> param; default <code>"[custodian] This custom role requires review."</code> <strong>Note:</strong> <code>list_roles</code> may return <code>null</code> or absent key for description — the <code>or:</code> filter catches both.</div>
+
+<h3>ibm.iam-policy</h3>
+<table>
+  <tr><th style="width:38%">Check</th><th style="width:8%">Level</th><th style="width:22%">Filter / key</th><th style="width:9%">Status</th><th>Recommended Actions</th></tr>
+  <tr><td>Wildcard (*) policy granting broad resource access</td><td><span class="badge b-must">MUST</span></td><td><code>value key:resources[0].attributes[?name=='serviceInstance'].value op:absent</code></td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-danger">delete</span></div></td></tr>
+  <tr><td>Policy with no conditions (always-on access)</td><td><span class="badge b-should">SHOULD</span></td><td><code>value key:rule op:absent</code></td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-danger">delete</span></div></td></tr>
+</table>
+<div class="note">Only <code>delete</code> is available for <code>ibm.iam-policy</code> — tagging and mutation are not supported by the IAM Policy Management API.</div>
+
+<h2>VPC — Compute</h2>
+
+<h3>ibm.vpc-instance</h3>
+<table>
+  <tr><th style="width:38%">Check</th><th style="width:8%">Level</th><th style="width:22%">Filter / key</th><th style="width:9%">Status</th><th>Recommended Actions</th></tr>
+  <tr><td>Instance stopped for &gt;30 days (zombie)</td><td><span class="badge b-should">SHOULD</span></td><td><code>value key:status op:eq value:stopped</code> + <code>age</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-safe">mark-for-op</span><span class="badge a-danger">delete</span></div></td></tr>
+  <tr><td>Missing mandatory tags (owner, environment)</td><td><span class="badge b-must">MUST</span></td><td><code>tag key:owner op:absent</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span><span class="badge a-safe">mark-for-op</span></div></td></tr>
+  <tr><td>Instance in non-approved zone</td><td><span class="badge b-should">SHOULD</span></td><td><code>value key:zone.name op:ne value:&lt;zone&gt;</code></td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+  <tr><td>Over-sized instance (large CPU/memory)</td><td><span class="badge b-can">CAN</span></td><td><code>value key:vcpu.count op:gt value:16</code></td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-warn">stop</span><span class="badge a-safe">tag</span></div></td></tr>
+  <tr><td>Marked for operation past deadline</td><td><span class="badge b-should">SHOULD</span></td><td><code>marked-for-op</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-warn">stop</span><span class="badge a-danger">delete</span></div></td></tr>
+  <tr><td>Instance in wrong resource group</td><td><span class="badge b-can">CAN</span></td><td><code>resource-group</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+</table>
+<div class="note">Full action set: <code>stop</code>, <code>start</code>, <code>reboot</code>, <code>delete</code>, <code>tag</code>, <code>remove-tag</code>, <code>mark-for-op</code>.</div>
+
+<h3>ibm.vpc-bare-metal</h3>
+<table>
+  <tr><th style="width:38%">Check</th><th style="width:8%">Level</th><th style="width:22%">Filter / key</th><th style="width:9%">Status</th><th>Recommended Actions</th></tr>
+  <tr><td>Server not in running/starting state</td><td><span class="badge b-must">MUST</span></td><td><code>value key:status op:ne value:running</code></td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+  <tr><td>Server with unhealthy health_state</td><td><span class="badge b-must">MUST</span></td><td><code>value key:health_state op:ne value:ok</code></td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+  <tr><td>Secure boot not enabled</td><td><span class="badge b-should">SHOULD</span></td><td><code>value key:enable_secure_boot op:eq value:false</code></td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+  <tr><td>Server older than 730 days (re-provision candidate)</td><td><span class="badge b-can">CAN</span></td><td><code>age op:gt days:730</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span><span class="badge a-danger">delete</span></div></td></tr>
+  <tr><td>Missing mandatory tags</td><td><span class="badge b-must">MUST</span></td><td><code>tag key:owner op:absent</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+</table>
+
+<h3>ibm.vpc-dedicated-host</h3>
+<table>
+  <tr><th style="width:38%">Check</th><th style="width:8%">Level</th><th style="width:22%">Filter / key</th><th style="width:9%">Status</th><th>Recommended Actions</th></tr>
+  <tr><td>Host not in available state</td><td><span class="badge b-must">MUST</span></td><td><code>value key:state op:ne value:available</code></td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+  <tr><td>Host not provisionable (at capacity or faulted)</td><td><span class="badge b-should">SHOULD</span></td><td><code>value key:provisionable op:eq value:false</code></td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+  <tr><td>Host with large available_memory (underutilised)</td><td><span class="badge b-can">CAN</span></td><td><code>value key:available_memory op:gt value:N</code></td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+  <tr><td>Missing mandatory tags</td><td><span class="badge b-must">MUST</span></td><td><code>tag key:owner op:absent</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+</table>
+
+<h3>ibm.vpc-instance-group</h3>
+<table>
+  <tr><th style="width:38%">Check</th><th style="width:8%">Level</th><th style="width:22%">Filter / key</th><th style="width:9%">Status</th><th>Recommended Actions</th></tr>
+  <tr><td>Instance group with zero members (unused)</td><td><span class="badge b-should">SHOULD</span></td><td><code>value key:membership_count op:eq value:0</code></td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span><span class="badge a-danger">delete</span></div></td></tr>
+  <tr><td>Group not in stable lifecycle state</td><td><span class="badge b-should">SHOULD</span></td><td><code>value key:lifecycle_state op:ne value:stable</code></td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+  <tr><td>Missing mandatory tags</td><td><span class="badge b-can">CAN</span></td><td><code>tag key:owner op:absent</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+</table>
+
+<h3>ibm.vpc-instance-template</h3>
+<table>
+  <tr><th style="width:38%">Check</th><th style="width:8%">Level</th><th style="width:22%">Filter / key</th><th style="width:9%">Status</th><th>Recommended Actions</th></tr>
+  <tr><td>Template older than 365 days (stale configuration)</td><td><span class="badge b-should">SHOULD</span></td><td><code>age op:gt days:365</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span><span class="badge a-danger">delete</span></div></td></tr>
+  <tr><td>Template not referenced by any instance group</td><td><span class="badge b-can">CAN</span></td><td>cross-resource — detect via empty groups pointing to template id</td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-danger">delete</span></div></td></tr>
+  <tr><td>Missing mandatory tags</td><td><span class="badge b-can">CAN</span></td><td><code>tag key:owner op:absent</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+</table>
+
+<h2>VPC — Networking</h2>
+
+<h3>ibm.vpc-network</h3>
+<table>
+  <tr><th style="width:38%">Check</th><th style="width:8%">Level</th><th style="width:22%">Filter / key</th><th style="width:9%">Status</th><th>Recommended Actions</th></tr>
+  <tr><td>VPC with no subnets (unused)</td><td><span class="badge b-should">SHOULD</span></td><td><code>value key:subnets op:eq value:[]</code></td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span><span class="badge a-danger">delete</span></div></td></tr>
+  <tr><td>Missing mandatory tags</td><td><span class="badge b-must">MUST</span></td><td><code>tag key:owner op:absent</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+  <tr><td>VPC in wrong resource group</td><td><span class="badge b-can">CAN</span></td><td><code>resource-group</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+</table>
+
+<h3>ibm.vpc-subnet</h3>
+<table>
+  <tr><th style="width:38%">Check</th><th style="width:8%">Level</th><th style="width:22%">Filter / key</th><th style="width:9%">Status</th><th>Recommended Actions</th></tr>
+  <tr><td>Subnet not in available state</td><td><span class="badge b-must">MUST</span></td><td><code>value key:status op:ne value:available</code></td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+  <tr><td>Subnet with no available IPs (exhausted)</td><td><span class="badge b-should">SHOULD</span></td><td><code>value key:available_ipv4_address_count op:eq value:0</code></td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+  <tr><td>Missing mandatory tags</td><td><span class="badge b-must">MUST</span></td><td><code>tag key:owner op:absent</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+</table>
+
+<h3>ibm.vpc-security-group</h3>
+<table>
+  <tr><th style="width:38%">Check</th><th style="width:8%">Level</th><th style="width:22%">Filter / key</th><th style="width:9%">Status</th><th>Recommended Actions</th></tr>
+  <tr><td>Inbound rule allowing SSH (22) from 0.0.0.0/0</td><td><span class="badge b-must">MUST</span></td><td><code>value</code> JMESPath — <code>rules[?port_min&lt;=`22` &amp;&amp; port_max&gt;=`22` &amp;&amp; direction=='inbound' &amp;&amp; remote.cidr_block=='0.0.0.0/0']</code></td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span><span class="badge a-danger">delete</span></div></td></tr>
+  <tr><td>Inbound rule allowing RDP (3389) from 0.0.0.0/0</td><td><span class="badge b-must">MUST</span></td><td><code>value</code> JMESPath — <code>rules[?port_min&lt;=`3389` &amp;&amp; port_max&gt;=`3389` &amp;&amp; direction=='inbound' &amp;&amp; remote.cidr_block=='0.0.0.0/0']</code></td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span><span class="badge a-danger">delete</span></div></td></tr>
+  <tr><td>Any inbound rule port range 0–65535 from 0.0.0.0/0</td><td><span class="badge b-must">MUST</span></td><td><code>value</code> JMESPath on <code>rules[]</code></td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+  <tr><td>Security group with no attached resources (orphan)</td><td><span class="badge b-should">SHOULD</span></td><td><code>value key:targets op:eq value:[]</code></td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-danger">delete</span></div></td></tr>
+  <tr><td>Missing mandatory tags</td><td><span class="badge b-must">MUST</span></td><td><code>tag key:owner op:absent</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+</table>
+
+<h3>ibm.vpc-network-acl</h3>
+<table>
+  <tr><th style="width:38%">Check</th><th style="width:8%">Level</th><th style="width:22%">Filter / key</th><th style="width:9%">Status</th><th>Recommended Actions</th></tr>
+  <tr><td>Inbound ALLOW rule for SSH (22) from 0.0.0.0/0</td><td><span class="badge b-must">MUST</span></td><td><code>value</code> JMESPath — <code>rules[?destination_port_min&lt;=`22` &amp;&amp; destination_port_max&gt;=`22` &amp;&amp; direction=='inbound' &amp;&amp; action=='allow' &amp;&amp; source=='0.0.0.0/0']</code></td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+  <tr><td>Inbound ALLOW rule for RDP (3389) from 0.0.0.0/0</td><td><span class="badge b-must">MUST</span></td><td><code>value</code> JMESPath — <code>rules[?destination_port_min&lt;=`3389` &amp;&amp; destination_port_max&gt;=`3389` &amp;&amp; direction=='inbound' &amp;&amp; action=='allow' &amp;&amp; source=='0.0.0.0/0']</code></td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+  <tr><td>No explicit DENY-all rule at end of inbound chain</td><td><span class="badge b-should">SHOULD</span></td><td><code>value</code> JMESPath on last rule</td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+</table>
+
+<h3>ibm.vpc-public-gateway</h3>
+<table>
+  <tr><th style="width:38%">Check</th><th style="width:8%">Level</th><th style="width:22%">Filter / key</th><th style="width:9%">Status</th><th>Recommended Actions</th></tr>
+  <tr><td>Public gateway not attached to any subnet</td><td><span class="badge b-should">SHOULD</span></td><td>cross-resource subnet check</td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span><span class="badge a-danger">delete</span></div></td></tr>
+  <tr><td>Missing mandatory tags</td><td><span class="badge b-must">MUST</span></td><td><code>tag key:owner op:absent</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+</table>
+
+<h3>ibm.vpc-transit-gateway</h3>
+<table>
+  <tr><th style="width:38%">Check</th><th style="width:8%">Level</th><th style="width:22%">Filter / key</th><th style="width:9%">Status</th><th>Recommended Actions</th></tr>
+  <tr><td>Transit gateway not in available state</td><td><span class="badge b-must">MUST</span></td><td><code>value key:status op:ne value:available</code></td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+  <tr><td>Transit gateway with no active connections</td><td><span class="badge b-should">SHOULD</span></td><td><code>value key:connections op:eq value:[]</code></td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span><span class="badge a-danger">delete</span></div></td></tr>
+  <tr><td>Cross-account gateway without governance tags</td><td><span class="badge b-should">SHOULD</span></td><td><code>tag key:owner op:absent</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+  <tr><td>Gateway older than 730 days — review connectivity diagram</td><td><span class="badge b-can">CAN</span></td><td><code>age op:gt days:730</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+</table>
+
+<h3>ibm.vpc-vpn-gateway</h3>
+<table>
+  <tr><th style="width:38%">Check</th><th style="width:8%">Level</th><th style="width:22%">Filter / key</th><th style="width:9%">Status</th><th>Recommended Actions</th></tr>
+  <tr><td>VPN connections using weak IKE/IPsec policy</td><td><span class="badge b-must">MUST</span></td><td><code>value</code> JMESPath on <code>connections[]</code></td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+  <tr><td>VPN gateway not in available state</td><td><span class="badge b-must">MUST</span></td><td><code>value key:status op:ne value:available</code></td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+  <tr><td>Missing mandatory tags</td><td><span class="badge b-should">SHOULD</span></td><td><code>tag key:owner op:absent</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+</table>
+
+<h3>ibm.vpc-load-balancer</h3>
+<table>
+  <tr><th style="width:38%">Check</th><th style="width:8%">Level</th><th style="width:22%">Filter / key</th><th style="width:9%">Status</th><th>Recommended Actions</th></tr>
+  <tr><td>Public load balancer with no HTTPS listener</td><td><span class="badge b-must">MUST</span></td><td><code>value</code> JMESPath — <code>listeners[?protocol=='https']</code> op:eq value:[]</td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+  <tr><td>Load balancer not in active state</td><td><span class="badge b-must">MUST</span></td><td><code>value key:provisioning_status op:ne value:active</code></td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+  <tr><td>Missing mandatory tags</td><td><span class="badge b-should">SHOULD</span></td><td><code>tag key:owner op:absent</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+</table>
+
+<h3>ibm.vpc-floating-ip</h3>
+<table>
+  <tr><th style="width:38%">Check</th><th style="width:8%">Level</th><th style="width:22%">Filter / key</th><th style="width:9%">Status</th><th>Recommended Actions</th></tr>
+  <tr><td>Unattached floating IP (wasted cost)</td><td><span class="badge b-must">MUST</span></td><td><code>value key:target op:absent</code></td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-danger">release</span></div></td></tr>
+  <tr><td>Missing mandatory tags</td><td><span class="badge b-should">SHOULD</span></td><td><code>tag key:owner op:absent</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+</table>
+
+<h3>ibm.vpc-ssh-key</h3>
+<table>
+  <tr><th style="width:38%">Check</th><th style="width:8%">Level</th><th style="width:22%">Filter / key</th><th style="width:9%">Status</th><th>Recommended Actions</th></tr>
+  <tr><td>SSH key older than 365 days (rotation overdue)</td><td><span class="badge b-should">SHOULD</span></td><td><code>age op:gt days:365</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span><span class="badge a-danger">delete</span></div></td></tr>
+  <tr><td>Missing owner tag</td><td><span class="badge b-should">SHOULD</span></td><td><code>tag key:owner op:absent</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+</table>
+
+<h2>VPC — Storage</h2>
+
+<h3>ibm.vpc-volume</h3>
+<table>
+  <tr><th style="width:38%">Check</th><th style="width:8%">Level</th><th style="width:22%">Filter / key</th><th style="width:9%">Status</th><th>Recommended Actions</th></tr>
+  <tr><td>Unattached volume older than 30 days</td><td><span class="badge b-should">SHOULD</span></td><td><code>value key:attachment_state op:eq value:unattached</code> + <code>age</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span><span class="badge a-danger">delete</span></div></td></tr>
+  <tr><td>Volume not encrypted with customer-managed key</td><td><span class="badge b-must">MUST</span></td><td><code>value key:encryption op:eq value:provider_managed</code></td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+  <tr><td>Oversized volume (capacity above threshold)</td><td><span class="badge b-can">CAN</span></td><td><code>value key:capacity op:gt value:2000</code></td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+</table>
+
+<h3>ibm.vpc-snapshot</h3>
+<table>
+  <tr><th style="width:38%">Check</th><th style="width:8%">Level</th><th style="width:22%">Filter / key</th><th style="width:9%">Status</th><th>Recommended Actions</th></tr>
+  <tr><td>Snapshot whose source volume was deleted (orphaned)</td><td><span class="badge b-should">SHOULD</span></td><td><code>orphaned</code> — checks <code>source_volume</code> absent or null</td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span><span class="badge a-danger">delete</span></div></td></tr>
+  <tr><td>Snapshot older than 365 days</td><td><span class="badge b-can">CAN</span></td><td><code>age op:gt days:365</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span><span class="badge a-danger">delete</span></div></td></tr>
+  <tr><td>Snapshot not encrypted (provider-managed only)</td><td><span class="badge b-should">SHOULD</span></td><td><code>value key:encryption op:eq value:provider_managed</code></td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+  <tr><td>Snapshot lifecycle_state not stable</td><td><span class="badge b-should">SHOULD</span></td><td><code>value key:lifecycle_state op:ne value:stable</code></td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+</table>
+
+<h3>ibm.vpc-backup-policy</h3>
+<table>
+  <tr><th style="width:38%">Check</th><th style="width:8%">Level</th><th style="width:22%">Filter / key</th><th style="width:9%">Status</th><th>Recommended Actions</th></tr>
+  <tr><td>Backup policy with no plans configured (protects nothing)</td><td><span class="badge b-should">SHOULD</span></td><td><code>unused</code> — checks empty <code>plans</code> list</td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span><span class="badge a-danger">delete</span></div></td></tr>
+  <tr><td>Backup policy not matching any resource tags</td><td><span class="badge b-should">SHOULD</span></td><td><code>value key:match_user_tags op:eq value:[]</code></td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+  <tr><td>Backup policy in non-stable lifecycle state</td><td><span class="badge b-must">MUST</span></td><td><code>value key:lifecycle_state op:ne value:stable</code></td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+</table>
+
+<h3>ibm.vpc-file-share</h3>
+<table>
+  <tr><th style="width:38%">Check</th><th style="width:8%">Level</th><th style="width:22%">Filter / key</th><th style="width:9%">Status</th><th>Recommended Actions</th></tr>
+  <tr><td>File share with no mount targets (unused)</td><td><span class="badge b-should">SHOULD</span></td><td><code>value key:mount_targets op:eq value:[]</code></td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span><span class="badge a-danger">delete</span></div></td></tr>
+  <tr><td>Share not encrypted with customer-managed key</td><td><span class="badge b-should">SHOULD</span></td><td><code>value key:encryption op:eq value:provider_managed</code></td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+  <tr><td>Share in non-stable lifecycle state</td><td><span class="badge b-must">MUST</span></td><td><code>value key:lifecycle_state op:ne value:stable</code></td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+  <tr><td>Oversized share (size above threshold)</td><td><span class="badge b-can">CAN</span></td><td><code>value key:size op:gt value:10000</code></td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+  <tr><td>Missing mandatory tags</td><td><span class="badge b-must">MUST</span></td><td><code>tag key:owner op:absent</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+</table>
+
+<h2>Cloud Object Storage</h2>
+
+<div class="note"><strong>COS endpoint resolution:</strong> When using IAM auth, <code>list_buckets()</code> does not return <code>LocationConstraint</code>. The provider calls <code>GetBucketLocation</code> per bucket during <code>augment()</code> and writes the region back — ensuring all actions hit the correct regional endpoint.</div>
+
+<h3>ibm.cos-bucket</h3>
+<table>
+  <tr><th style="width:38%">Check</th><th style="width:8%">Level</th><th style="width:22%">Filter / key</th><th style="width:9%">Status</th><th>Recommended Actions</th></tr>
+  <tr><td>Bucket with public ACL access</td><td><span class="badge b-must">MUST</span></td><td><code>public-access value:true</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+  <tr><td>Bucket not using customer-managed Key Protect key</td><td><span class="badge b-must">MUST</span></td><td><code>customer-managed-key value:false</code> — reads <code>IBMSSEKPEnabled</code> header</td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span><span class="badge a-safe">set-encryption</span></div></td></tr>
+  <tr><td>Bucket without versioning</td><td><span class="badge b-should">SHOULD</span></td><td><code>versioning-enabled value:false</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-safe">set-versioning</span></div></td></tr>
+  <tr><td>Bucket without a lifecycle policy</td><td><span class="badge b-should">SHOULD</span></td><td><code>value key:c7n:lifecycle op:eq value:[]</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-safe">set-lifecycle</span></div></td></tr>
+  <tr><td>Bucket created more than N days ago (review)</td><td><span class="badge b-can">CAN</span></td><td><code>age op:gt days:N</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+  <tr><td>Missing mandatory tags</td><td><span class="badge b-must">MUST</span></td><td><code>tag key:owner op:absent</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+</table>
+<div class="note"><strong>set-encryption:</strong> Logs a warning only — IBM COS has no per-bucket SSE API. Use <code>customer-managed-key</code> + <code>tag</code> to flag. Full action set: <code>tag</code>, <code>remove-tag</code>, <code>set-versioning</code>, <code>set-lifecycle</code>, <code>set-encryption</code>.</div>
+
+<h2>Key Protect (KMS)</h2>
+
+<h3>ibm.kms-key</h3>
+<table>
+  <tr><th style="width:38%">Check</th><th style="width:8%">Level</th><th style="width:22%">Filter / key</th><th style="width:9%">Status</th><th>Recommended Actions</th></tr>
+  <tr><td>Key without an automatic rotation policy</td><td><span class="badge b-must">MUST</span></td><td><code>rotation-policy enabled:false</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-warn">rotate</span><span class="badge a-safe">tag</span></div></td></tr>
+  <tr><td>Key in deactivated or destroyed state</td><td><span class="badge b-must">MUST</span></td><td><code>state value:deactivated</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span><span class="badge a-danger">delete</span></div></td></tr>
+  <tr><td>Key older than 365 days (rotation overdue)</td><td><span class="badge b-should">SHOULD</span></td><td><code>age op:gt days:365</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-warn">rotate</span></div></td></tr>
+  <tr><td>Key in pre-activation state (never activated)</td><td><span class="badge b-should">SHOULD</span></td><td><code>state value:pre-activation</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-warn">disable</span><span class="badge a-danger">delete</span></div></td></tr>
+  <tr><td>Key currently disabled — re-enable or delete</td><td><span class="badge b-can">CAN</span></td><td><code>state value:deactivated</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-warn">enable</span><span class="badge a-danger">delete</span></div></td></tr>
+</table>
+<div class="note">Full action set: <code>tag</code>, <code>remove-tag</code>, <code>disable</code>, <code>enable</code>, <code>rotate</code>, <code>delete</code>.</div>
+
+<h3>ibm.kms-key-ring</h3>
+<table>
+  <tr><th style="width:38%">Check</th><th style="width:8%">Level</th><th style="width:22%">Filter / key</th><th style="width:9%">Status</th><th>Recommended Actions</th></tr>
+  <tr><td>Key ring with no keys (empty, unused)</td><td><span class="badge b-should">SHOULD</span></td><td><code>value key:keys op:eq value:[]</code></td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-danger">delete</span></div></td></tr>
+  <tr><td>Key ring with non-standard naming convention</td><td><span class="badge b-can">CAN</span></td><td><code>value key:id op:regex value:...</code></td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-danger">delete</span></div></td></tr>
+</table>
+<div class="note">Only <code>delete</code> available — no tagging support in the Key Protect API for key rings.</div>
+
+<h2>Kubernetes (IKS / ROKS)</h2>
+
+<h3>ibm.iks-cluster / ibm.roks-cluster</h3>
+<table>
+  <tr><th style="width:38%">Check</th><th style="width:8%">Level</th><th style="width:22%">Filter / key</th><th style="width:9%">Status</th><th>Recommended Actions</th></tr>
+  <tr><td>Cluster running an EOL Kubernetes version</td><td><span class="badge b-must">MUST</span></td><td><code>version op:lt value:1.29</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span><span class="badge a-danger">delete</span></div></td></tr>
+  <tr><td>Cluster not in normal state</td><td><span class="badge b-must">MUST</span></td><td><code>value key:state op:ne value:normal</code></td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+  <tr><td>Cluster without KMS / Key Protect enabled</td><td><span class="badge b-must">MUST</span></td><td><code>kms-enabled enabled:false</code> — checks <code>keyManagementService.desiredInstance</code> and <code>actualInstance</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+  <tr><td>Cluster without private endpoint enabled</td><td><span class="badge b-must">MUST</span></td><td><code>value key:disablePublicServiceEndpoint op:eq value:false</code></td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+  <tr><td>Missing mandatory tags</td><td><span class="badge b-should">SHOULD</span></td><td><code>tag key:owner op:absent</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+  <tr><td>Cluster in wrong resource group</td><td><span class="badge b-can">CAN</span></td><td><code>resource-group</code> — matches <code>resourceGroupName</code> or <code>resourceGroup</code> (ID)</td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+</table>
+<div class="note">Full action set: <code>tag</code>, <code>remove-tag</code>, <code>delete</code>. <code>resource-group</code> and <code>kms-enabled</code> filters are available on both <code>ibm.iks-cluster</code> and <code>ibm.roks-cluster</code>. The Container API returns flat strings (<code>resourceGroup</code> / <code>resourceGroupName</code>) rather than a nested dict — the filter handles both shapes.</div>
+
+<h3>ibm.iks-worker-pool</h3>
+<table>
+  <tr><th style="width:38%">Check</th><th style="width:8%">Level</th><th style="width:22%">Filter / key</th><th style="width:9%">Status</th><th>Recommended Actions</th></tr>
+  <tr><td>Worker pool with zero workers (empty pool)</td><td><span class="badge b-should">SHOULD</span></td><td><code>value key:workerCount op:eq value:0</code></td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+  <tr><td>Worker pool with fewer than 3 workers (underpopulated)</td><td><span class="badge b-should">SHOULD</span></td><td><code>value key:workerCount op:lt value:3</code></td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+  <tr><td>Missing mandatory tags</td><td><span class="badge b-must">MUST</span></td><td><code>tag key:owner op:absent</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+</table>
+<div class="note">Only <code>tag</code> available for <code>ibm.iks-worker-pool</code>. Worker pools have no CRN — the <code>tag</code> action targets the <strong>parent cluster's</strong> CRN. The cluster CRN is fetched via <code>GET /v2/getCluster</code> once per cluster and cached across all its pools during a single policy run.</div>
+
+<h2>Power Systems Virtual Server (PowerVS)</h2>
+
+<h3>ibm.powervs-instance</h3>
+<table>
+  <tr><th style="width:38%">Check</th><th style="width:8%">Level</th><th style="width:22%">Filter / key</th><th style="width:9%">Status</th><th>Recommended Actions</th></tr>
+  <tr><td>Instance in ERROR state</td><td><span class="badge b-must">MUST</span></td><td><code>value key:status op:eq value:ERROR</code></td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+  <tr><td>Instance stopped (SHUTOFF) for &gt;30 days</td><td><span class="badge b-should">SHOULD</span></td><td><code>value key:status op:eq value:SHUTOFF</code> + <code>age</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span><span class="badge a-danger">delete</span></div></td></tr>
+  <tr><td>Instance with a public network interface</td><td><span class="badge b-must">MUST</span></td><td><code>public-network-interface</code> — matches <code>externalIP</code> non-empty or <code>networkName</code> starting with <code>public-</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span><span class="badge a-warn">stop</span><span class="badge a-danger">delete</span></div></td></tr>
+  <tr><td>Dedicated proc type without justification tag</td><td><span class="badge b-can">CAN</span></td><td><code>value key:procType op:eq value:dedicated</code></td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+  <tr><td>Oversized VM — high processor entitlement (&gt;4 vCPU)</td><td><span class="badge b-can">CAN</span></td><td><code>value key:processors op:gt value:4</code></td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-warn">stop</span><span class="badge a-safe">tag</span></div></td></tr>
+  <tr><td>Oversized VM — large memory allocation (&gt;256 GiB)</td><td><span class="badge b-can">CAN</span></td><td><code>value key:memory op:gt value:256</code></td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+  <tr><td>High entitlement on capped proc type (cost risk)</td><td><span class="badge b-should">SHOULD</span></td><td><code>value key:procType op:eq value:capped</code> + <code>value key:processors op:gt value:2</code></td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+  <tr><td>Missing mandatory tags</td><td><span class="badge b-should">SHOULD</span></td><td><code>tag key:owner op:absent</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+</table>
+<div class="note">Full action set: <code>stop</code>, <code>start</code>, <code>delete</code>, <code>tag</code>, <code>remove-tag</code>.</div>
+
+<h3>ibm.powervs-volume</h3>
+<table>
+  <tr><th style="width:38%">Check</th><th style="width:8%">Level</th><th style="width:22%">Filter / key</th><th style="width:9%">Status</th><th>Recommended Actions</th></tr>
+  <tr><td>Volume not attached to any instance (wasted cost)</td><td><span class="badge b-should">SHOULD</span></td><td><code>value key:pvmInstanceIDs op:eq value:[]</code></td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span><span class="badge a-danger">delete</span></div></td></tr>
+  <tr><td>Shareable volume exposed unintentionally</td><td><span class="badge b-should">SHOULD</span></td><td><code>value key:shareable op:eq value:true</code></td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+  <tr><td>Oversized volume (&gt;2000 GiB)</td><td><span class="badge b-can">CAN</span></td><td><code>value key:size op:gt value:2000</code></td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+  <tr><td>Tier-1 volume not in active use</td><td><span class="badge b-should">SHOULD</span></td><td><code>value key:diskType op:eq value:tier1</code> + <code>value key:pvmInstanceIDs op:eq value:[]</code></td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span><span class="badge a-danger">delete</span></div></td></tr>
+  <tr><td>Missing owner tag</td><td><span class="badge b-must">MUST</span></td><td><code>tag key:owner op:absent</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+  <tr><td>Missing environment tag</td><td><span class="badge b-must">MUST</span></td><td><code>tag key:environment op:absent</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+</table>
+
+<h3>ibm.powervs-network</h3>
+<table>
+  <tr><th style="width:38%">Check</th><th style="width:8%">Level</th><th style="width:22%">Filter / key</th><th style="width:9%">Status</th><th>Recommended Actions</th></tr>
+  <tr><td>Public network type in use (should be private)</td><td><span class="badge b-must">MUST</span></td><td><code>value key:type op:eq value:pub-vlan</code></td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span><span class="badge a-danger">delete</span></div></td></tr>
+  <tr><td>Missing mandatory tags</td><td><span class="badge b-should">SHOULD</span></td><td><code>tag key:owner op:absent</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+</table>
+
+<h3>ibm.powervs-image</h3>
+<table>
+  <tr><th style="width:38%">Check</th><th style="width:8%">Level</th><th style="width:22%">Filter / key</th><th style="width:9%">Status</th><th>Recommended Actions</th></tr>
+  <tr><td>Imported image older than 365 days (stale)</td><td><span class="badge b-can">CAN</span></td><td><code>age op:gt days:365</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-danger">delete</span></div></td></tr>
+  <tr><td>Image not in active state</td><td><span class="badge b-should">SHOULD</span></td><td><code>value key:state op:ne value:active</code></td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-danger">delete</span></div></td></tr>
+</table>
+<div class="note">Only <code>delete</code> available for <code>ibm.powervs-image</code> — no tagging support in the PowerVS Image API.</div>
+
+<h3>ibm.powervs-ssh-key</h3>
+<table>
+  <tr><th style="width:38%">Check</th><th style="width:8%">Level</th><th style="width:22%">Filter / key</th><th style="width:9%">Status</th><th>Recommended Actions</th></tr>
+  <tr><td>SSH key older than 365 days (rotation overdue)</td><td><span class="badge b-should">SHOULD</span></td><td><code>age op:gt days:365</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-danger">delete</span></div></td></tr>
+  <tr><td>SSH key not used by any PowerVS instance</td><td><span class="badge b-can">CAN</span></td><td>cross-resource — no direct field</td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-danger">delete</span></div></td></tr>
+</table>
+
+<h2>Databases as a Service (DBaaS)</h2>
+<p class="section-intro">Applies to all 6 engines: <code>ibm.dbaas-postgresql</code>, <code>ibm.dbaas-mysql</code>, <code>ibm.dbaas-mongodb</code>, <code>ibm.dbaas-redis</code>, <code>ibm.dbaas-elasticsearch</code>, <code>ibm.dbaas-rabbitmq</code>. All share the same filter/action set via <code>_register_icd_common</code>. (<code>ibm.dbaas-cassandra</code> and <code>ibm.dbaas-db2</code> were removed — IBM Cloud does not offer these as managed services.)</p>
+<table>
+  <tr><th style="width:38%">Check</th><th style="width:8%">Level</th><th style="width:22%">Filter / key</th><th style="width:9%">Status</th><th>Recommended Actions</th></tr>
+  <tr><td>Database running an EOL / unsupported version</td><td><span class="badge b-must">MUST</span></td><td><code>version op:lt value:&lt;current&gt;</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span><span class="badge a-danger">delete</span></div></td></tr>
+  <tr><td>Database not in running state</td><td><span class="badge b-must">MUST</span></td><td><code>value key:state op:ne value:running</code></td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+  <tr><td>Database not using a private network endpoint</td><td><span class="badge b-should">SHOULD</span></td><td><code>value key:service_endpoints op:contains value:public</code></td><td><span class="badge b-miss">policy only</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+  <tr><td>Database on a deprecated / non-standard plan</td><td><span class="badge b-should">SHOULD</span></td><td><code>plan value:standard</code> (inverse)</td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+  <tr><td>Missing mandatory tags</td><td><span class="badge b-must">MUST</span></td><td><code>tag key:owner op:absent</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+  <tr><td>Under-provisioned instance (low memory) — scale up</td><td><span class="badge b-can">CAN</span></td><td><code>value key:resources.memory.allocation_mb op:lt value:4096</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-warn">scale</span></div></td></tr>
+  <tr><td>Database in wrong resource group</td><td><span class="badge b-can">CAN</span></td><td><code>resource-group</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+</table>
+
+<h2>Cross-cutting (all resource types)</h2>
+<table>
+  <tr><th style="width:38%">Check</th><th style="width:8%">Level</th><th style="width:22%">Filter / key</th><th style="width:9%">Status</th><th>Recommended Actions</th></tr>
+  <tr><td>Missing <code>owner</code> tag</td><td><span class="badge b-must">MUST</span></td><td><code>tag key:owner op:absent</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span><span class="badge a-safe">mark-for-op</span></div></td></tr>
+  <tr><td>Missing <code>environment</code> tag</td><td><span class="badge b-must">MUST</span></td><td><code>tag key:environment op:absent</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span><span class="badge a-safe">mark-for-op</span></div></td></tr>
+  <tr><td>Missing <code>cost-centre</code> tag</td><td><span class="badge b-should">SHOULD</span></td><td><code>tag key:cost-centre op:absent</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+  <tr><td>Resource in wrong resource group for its environment</td><td><span class="badge b-should">SHOULD</span></td><td><code>resource-group</code> + <code>tag</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span></div></td></tr>
+  <tr><td>Resource marked for operation past deadline</td><td><span class="badge b-should">SHOULD</span></td><td><code>marked-for-op</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-warn">stop</span><span class="badge a-danger">delete</span></div></td></tr>
+  <tr><td>Resource created more than N days ago with no activity</td><td><span class="badge b-can">CAN</span></td><td><code>age op:gt days:N</code></td><td><span class="badge b-impl">implemented</span></td><td><div class="action-chips"><span class="badge a-safe">tag</span><span class="badge a-safe">mark-for-op</span></div></td></tr>
+</table>
+
+<h2>Runtime Error Handling</h2>
+<p class="section-intro">All <code>IBMBaseAction.process()</code> calls handle API errors gracefully per resource — a single failure never aborts the full policy run.</p>
+<table>
+  <tr><th style="width:28%">Condition</th><th style="width:14%">Log level</th><th style="width:30%">Trigger</th><th>Behaviour</th></tr>
+  <tr><td>Resource already deleted (race condition)</td><td><code>DEBUG</code></td><td><code>ApiException code=404</code>, <code>HTTPError status=404</code>, <code>NoSuchBucket</code>, string "not found"</td><td>Silent skip — continues to next resource. No traceback.</td></tr>
+  <tr><td>Permission denied</td><td><code>WARNING</code></td><td><code>ApiException code=401/403</code>, <code>ClientError AccessDenied</code>, string "(403)"</td><td>Warning logged with resource ID and exception. Continues. No traceback.</td></tr>
+  <tr><td>Unexpected error</td><td><code>ERROR</code></td><td>Any other exception</td><td>Full traceback via <code>log.exception</code>. Continues unless <code>fail_on_error: true</code>.</td></tr>
+  <tr><td><code>fail_on_error: true</code> set</td><td>as above</td><td>Any exception</td><td>Re-raises after logging — aborts remaining resources in the batch.</td></tr>
+</table>
+
+<footer style="margin-top:48px;padding-top:16px;border-top:1px solid #e5e7eb;text-align:center;font-size:12px;color:#57606a">Made with IBM Bob</footer>
+</body>
+</html>

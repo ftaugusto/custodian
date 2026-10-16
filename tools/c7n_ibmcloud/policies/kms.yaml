@@ -1,0 +1,99 @@
+policies:
+
+  # ---------------------------------------------------------------------------
+  # ibm.kms-key
+  # ---------------------------------------------------------------------------
+
+  - name: kms-key-no-rotation-policy
+    description: |
+      MUST — Active KMS keys without an automatic rotation policy.
+      Disables the key to prevent unrotated material from being used.
+    resource: ibm.kms-key
+    filters:
+      - type: rotation-policy
+        enabled: false
+      - type: state
+        value: active
+    actions:
+      - type: disable
+
+  - name: kms-key-deactivated
+    description: |
+      MUST — KMS keys in deactivated or destroyed state.
+    resource: ibm.kms-key
+    filters:
+      - type: state
+        value: deactivated
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "deactivated-key"
+
+  - name: kms-key-rotation-overdue
+    description: |
+      SHOULD — Active KMS keys older than 365 days (rotation overdue). Only
+      Active keys can be rotated; the state filter prevents 409 Conflict errors
+      on Suspended, Deactivated, or Destroyed keys.
+    resource: ibm.kms-key
+    filters:
+      - type: state
+        value: active
+      - type: age
+        op: gt
+        days: 365
+    actions:
+      - type: rotate
+
+  - name: kms-key-pre-activation
+    description: |
+      SHOULD — KMS keys in pre-activation state (never activated).
+      These keys have never been used and should be deleted.
+    resource: ibm.kms-key
+    filters:
+      - type: state
+        value: pre-activation
+    actions:
+      - type: delete
+
+  - name: kms-key-disabled-review
+    description: |
+      CAN — KMS keys currently disabled. Re-enable if still needed or delete.
+    resource: ibm.kms-key
+    filters:
+      - type: state
+        value: deactivated
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "disabled-key-review"
+
+  # ---------------------------------------------------------------------------
+  # ibm.kms-key-ring
+  # ---------------------------------------------------------------------------
+
+  - name: kms-key-ring-empty
+    description: |
+      SHOULD — Key rings with no keys (empty, unused).
+    resource: ibm.kms-key-ring
+    filters:
+      - type: value
+        key: keys
+        op: eq
+        value: []
+    actions:
+      - type: delete
+
+  - name: kms-key-ring-non-standard-name
+    description: |
+      CAN — Key rings whose ID does not match your naming convention.
+      Update the regex pattern to match your standard.
+    resource: ibm.kms-key-ring
+    filters:
+      - type: value
+        key: id
+        op: not-in
+        value:
+          - default
+    actions:
+      - type: webhook
+        url: "https://example.com/webhook"

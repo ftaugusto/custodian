@@ -1,0 +1,694 @@
+# Cross-cutting governance policies
+# These policies apply the same checks across every taggable resource type
+# in c7n_ibmcloud. Run this file alongside the per-service policy files.
+#
+# Resource types covered:
+#   VPC:     vpc-instance, vpc-bare-metal, vpc-dedicated-host, vpc-instance-group,
+#            vpc-instance-template, vpc-network, vpc-subnet, vpc-security-group,
+#            vpc-network-acl, vpc-public-gateway, vpc-transit-gateway, vpc-vpn-gateway,
+#            vpc-load-balancer, vpc-floating-ip, vpc-ssh-key, vpc-volume, vpc-snapshot,
+#            vpc-backup-policy, vpc-file-share
+#   COS:     cos-bucket
+#   KMS:     kms-key
+#   IKS:     iks-cluster, roks-cluster, iks-worker-pool
+#   PowerVS: powervs-instance, powervs-volume, powervs-network
+#   DBaaS:   dbaas-postgresql, dbaas-mysql, dbaas-mongodb, dbaas-redis,
+#            dbaas-elasticsearch, dbaas-cassandra, dbaas-rabbitmq, dbaas-db2
+#   IAM:     iam-service-id  (only IAM resource type with full tagging support)
+#
+# NOTE: iam-user, iam-api-key, iam-access-group, iam-policy, iam-trusted-profile,
+#       kms-key-ring, powervs-image, and powervs-ssh-key do NOT support GlobalTaggingV1
+#       tagging and are excluded from this file. See per-service policy files for those.
+
+policies:
+
+  # ===========================================================================
+  # MUST — Missing `owner` tag
+  # ===========================================================================
+
+  - name: cross-vpc-instance-missing-owner
+    resource: ibm.vpc-instance
+    description: "MUST — vpc-instance missing owner tag."
+    filters:
+      - type: tag
+        key: owner
+        op: absent
+    actions:
+      - type: mark-for-op
+        op: delete
+        days: 3
+
+  - name: cross-vpc-bare-metal-missing-owner
+    resource: ibm.vpc-bare-metal
+    description: "MUST — vpc-bare-metal missing owner tag."
+    filters:
+      - type: tag
+        key: owner
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-missing-owner: "true"
+
+  - name: cross-vpc-dedicated-host-missing-owner
+    resource: ibm.vpc-dedicated-host
+    description: "MUST — vpc-dedicated-host missing owner tag."
+    filters:
+      - type: tag
+        key: owner
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-missing-owner: "true"
+
+  - name: cross-vpc-volume-missing-owner
+    resource: ibm.vpc-volume
+    description: "MUST — vpc-volume missing owner tag."
+    filters:
+      - type: tag
+        key: owner
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-missing-owner: "true"
+
+  - name: cross-vpc-snapshot-missing-owner
+    resource: ibm.vpc-snapshot
+    description: "MUST — vpc-snapshot missing owner tag."
+    filters:
+      - type: tag
+        key: owner
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-missing-owner: "true"
+
+  - name: cross-vpc-file-share-missing-owner
+    resource: ibm.vpc-file-share
+    description: "MUST — vpc-file-share missing owner tag."
+    filters:
+      - type: tag
+        key: owner
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-missing-owner: "true"
+
+  - name: cross-vpc-security-group-missing-owner
+    resource: ibm.vpc-security-group
+    description: "MUST — vpc-security-group missing owner tag."
+    filters:
+      - type: tag
+        key: owner
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-missing-owner: "true"
+
+  - name: cross-vpc-ssh-key-missing-owner
+    resource: ibm.vpc-ssh-key
+    description: "MUST — vpc-ssh-key missing owner tag."
+    filters:
+      - type: tag
+        key: owner
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-missing-owner: "true"
+
+  - name: cross-cos-bucket-missing-owner
+    resource: ibm.cos-bucket
+    description: "MUST — cos-bucket missing owner tag."
+    filters:
+      - type: tag
+        key: owner
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-missing-owner: "true"
+
+  - name: cross-kms-key-missing-owner
+    resource: ibm.kms-key
+    description: "MUST — kms-key missing owner tag."
+    filters:
+      - type: tag
+        key: owner
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-missing-owner: "true"
+
+  - name: cross-iks-cluster-missing-owner
+    resource: ibm.iks-cluster
+    description: "MUST — iks-cluster missing owner tag."
+    filters:
+      - type: tag
+        key: owner
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-missing-owner: "true"
+
+  - name: cross-roks-cluster-missing-owner
+    resource: ibm.roks-cluster
+    description: "MUST — roks-cluster missing owner tag."
+    filters:
+      - type: tag
+        key: owner
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-missing-owner: "true"
+
+  - name: cross-powervs-instance-missing-owner
+    resource: ibm.powervs-instance
+    description: "MUST — powervs-instance missing owner tag."
+    filters:
+      - type: tag
+        key: owner
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-missing-owner: "true"
+
+  - name: cross-powervs-volume-missing-owner
+    resource: ibm.powervs-volume
+    description: "MUST — powervs-volume missing owner tag."
+    filters:
+      - type: tag
+        key: owner
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-missing-owner: "true"
+
+  - name: cross-dbaas-postgresql-missing-owner
+    resource: ibm.dbaas-postgresql
+    description: "MUST — dbaas-postgresql missing owner tag."
+    filters:
+      - type: tag
+        key: owner
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-missing-owner: "true"
+
+  - name: cross-dbaas-mysql-missing-owner
+    resource: ibm.dbaas-mysql
+    description: "MUST — dbaas-mysql missing owner tag."
+    filters:
+      - type: tag
+        key: owner
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-missing-owner: "true"
+
+  - name: cross-dbaas-mongodb-missing-owner
+    resource: ibm.dbaas-mongodb
+    description: "MUST — dbaas-mongodb missing owner tag."
+    filters:
+      - type: tag
+        key: owner
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-missing-owner: "true"
+
+  - name: cross-dbaas-redis-missing-owner
+    resource: ibm.dbaas-redis
+    description: "MUST — dbaas-redis missing owner tag."
+    filters:
+      - type: tag
+        key: owner
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-missing-owner: "true"
+
+  - name: cross-dbaas-elasticsearch-missing-owner
+    resource: ibm.dbaas-elasticsearch
+    description: "MUST — dbaas-elasticsearch missing owner tag."
+    filters:
+      - type: tag
+        key: owner
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-missing-owner: "true"
+
+  - name: cross-dbaas-rabbitmq-missing-owner
+    resource: ibm.dbaas-rabbitmq
+    description: "MUST — dbaas-rabbitmq missing owner tag."
+    filters:
+      - type: tag
+        key: owner
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-missing-owner: "true"
+
+  - name: cross-iam-service-id-missing-owner
+    resource: ibm.iam-service-id
+    description: "MUST — iam-service-id missing owner tag."
+    filters:
+      - type: tag
+        key: owner
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-missing-owner: "true"
+
+  # ===========================================================================
+  # MUST — Missing `environment` tag
+  # ===========================================================================
+
+  - name: cross-vpc-instance-missing-environment
+    resource: ibm.vpc-instance
+    description: "MUST — vpc-instance missing environment tag."
+    filters:
+      - type: tag
+        key: environment
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-missing-environment: "true"
+
+  - name: cross-vpc-volume-missing-environment
+    resource: ibm.vpc-volume
+    description: "MUST — vpc-volume missing environment tag."
+    filters:
+      - type: tag
+        key: environment
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-missing-environment: "true"
+
+  - name: cross-cos-bucket-missing-environment
+    resource: ibm.cos-bucket
+    description: "MUST — cos-bucket missing environment tag."
+    filters:
+      - type: tag
+        key: environment
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-missing-environment: "true"
+
+  - name: cross-kms-key-missing-environment
+    resource: ibm.kms-key
+    description: "MUST — kms-key missing environment tag."
+    filters:
+      - type: tag
+        key: environment
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-missing-environment: "true"
+
+  - name: cross-iks-cluster-missing-environment
+    resource: ibm.iks-cluster
+    description: "MUST — iks-cluster missing environment tag."
+    filters:
+      - type: tag
+        key: environment
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-missing-environment: "true"
+
+  - name: cross-roks-cluster-missing-environment
+    resource: ibm.roks-cluster
+    description: "MUST — roks-cluster missing environment tag."
+    filters:
+      - type: tag
+        key: environment
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-missing-environment: "true"
+
+  - name: cross-powervs-instance-missing-environment
+    resource: ibm.powervs-instance
+    description: "MUST — powervs-instance missing environment tag."
+    filters:
+      - type: tag
+        key: environment
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-missing-environment: "true"
+
+  - name: cross-powervs-volume-missing-environment
+    resource: ibm.powervs-volume
+    description: "MUST — powervs-volume missing environment tag."
+    filters:
+      - type: tag
+        key: environment
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-missing-environment: "true"
+
+  - name: cross-dbaas-postgresql-missing-environment
+    resource: ibm.dbaas-postgresql
+    description: "MUST — dbaas-postgresql missing environment tag."
+    filters:
+      - type: tag
+        key: environment
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-missing-environment: "true"
+
+  - name: cross-dbaas-mysql-missing-environment
+    resource: ibm.dbaas-mysql
+    description: "MUST — dbaas-mysql missing environment tag."
+    filters:
+      - type: tag
+        key: environment
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-missing-environment: "true"
+
+  - name: cross-dbaas-mongodb-missing-environment
+    resource: ibm.dbaas-mongodb
+    description: "MUST — dbaas-mongodb missing environment tag."
+    filters:
+      - type: tag
+        key: environment
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-missing-environment: "true"
+
+  - name: cross-dbaas-redis-missing-environment
+    resource: ibm.dbaas-redis
+    description: "MUST — dbaas-redis missing environment tag."
+    filters:
+      - type: tag
+        key: environment
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-missing-environment: "true"
+
+  - name: cross-dbaas-elasticsearch-missing-environment
+    resource: ibm.dbaas-elasticsearch
+    description: "MUST — dbaas-elasticsearch missing environment tag."
+    filters:
+      - type: tag
+        key: environment
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-missing-environment: "true"
+
+  - name: cross-dbaas-rabbitmq-missing-environment
+    resource: ibm.dbaas-rabbitmq
+    description: "MUST — dbaas-rabbitmq missing environment tag."
+    filters:
+      - type: tag
+        key: environment
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-missing-environment: "true"
+
+  # ===========================================================================
+  # SHOULD — Missing `cost-centre` tag
+  # ===========================================================================
+
+  - name: cross-vpc-instance-missing-cost-centre
+    resource: ibm.vpc-instance
+    description: "SHOULD — vpc-instance missing cost-centre tag."
+    filters:
+      - type: tag
+        key: cost-centre
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-missing-cost-centre: "true"
+
+  - name: cross-cos-bucket-missing-cost-centre
+    resource: ibm.cos-bucket
+    description: "SHOULD — cos-bucket missing cost-centre tag."
+    filters:
+      - type: tag
+        key: cost-centre
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-missing-cost-centre: "true"
+
+  - name: cross-kms-key-missing-cost-centre
+    resource: ibm.kms-key
+    description: "SHOULD — kms-key missing cost-centre tag."
+    filters:
+      - type: tag
+        key: cost-centre
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-missing-cost-centre: "true"
+
+  - name: cross-iks-cluster-missing-cost-centre
+    resource: ibm.iks-cluster
+    description: "SHOULD — iks-cluster missing cost-centre tag."
+    filters:
+      - type: tag
+        key: cost-centre
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-missing-cost-centre: "true"
+
+  - name: cross-roks-cluster-missing-cost-centre
+    resource: ibm.roks-cluster
+    description: "SHOULD — roks-cluster missing cost-centre tag."
+    filters:
+      - type: tag
+        key: cost-centre
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-missing-cost-centre: "true"
+
+  - name: cross-powervs-instance-missing-cost-centre
+    resource: ibm.powervs-instance
+    description: "SHOULD — powervs-instance missing cost-centre tag."
+    filters:
+      - type: tag
+        key: cost-centre
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-missing-cost-centre: "true"
+
+  - name: cross-dbaas-postgresql-missing-cost-centre
+    resource: ibm.dbaas-postgresql
+    description: "SHOULD — dbaas-postgresql missing cost-centre tag."
+    filters:
+      - type: tag
+        key: cost-centre
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-missing-cost-centre: "true"
+
+  # ===========================================================================
+  # SHOULD — Resource in wrong resource group
+  # Applies only to resource types that support the resource-group filter.
+  # Update `value` to match your approved resource group name.
+  # ===========================================================================
+
+  - name: cross-vpc-instance-wrong-resource-group
+    resource: ibm.vpc-instance
+    description: "SHOULD — vpc-instance not in the approved resource group."
+    filters:
+      - type: resource-group
+        op: ne
+        value: "approved-resource-group"
+    actions:
+      - type: tag
+        tags:
+          custodian-wrong-resource-group: "true"
+
+  - name: cross-vpc-volume-wrong-resource-group
+    resource: ibm.vpc-volume
+    description: "SHOULD — vpc-volume not in the approved resource group."
+    filters:
+      - type: resource-group
+        op: ne
+        value: "approved-resource-group"
+    actions:
+      - type: tag
+        tags:
+          custodian-wrong-resource-group: "true"
+
+  - name: cross-cos-bucket-wrong-resource-group
+    resource: ibm.cos-bucket
+    description: "SHOULD — cos-bucket not in the approved resource group."
+    filters:
+      - type: tag
+        key: resource_group
+        op: ne
+        value: "approved-resource-group"
+    actions:
+      - type: tag
+        tags:
+          custodian-wrong-resource-group: "true"
+
+  - name: cross-iks-cluster-wrong-resource-group
+    resource: ibm.iks-cluster
+    description: "SHOULD — iks-cluster not in the approved resource group."
+    filters:
+      - type: resource-group
+        op: ne
+        value: "approved-resource-group"
+    actions:
+      - type: tag
+        tags:
+          custodian-wrong-resource-group: "true"
+
+  - name: cross-dbaas-postgresql-wrong-resource-group
+    resource: ibm.dbaas-postgresql
+    description: "SHOULD — dbaas-postgresql not in the approved resource group."
+    filters:
+      - type: resource-group
+        op: ne
+        value: "approved-resource-group"
+    actions:
+      - type: tag
+        tags:
+          custodian-wrong-resource-group: "true"
+
+  # ===========================================================================
+  # SHOULD — Resource marked for operation past deadline
+  # Executes the deferred action on resources that have passed their deadline.
+  # ===========================================================================
+
+  - name: cross-vpc-instance-marked-for-op
+    resource: ibm.vpc-instance
+    description: "SHOULD — Execute deferred delete on vpc-instance past mark-for-op deadline."
+    filters:
+      - type: marked-for-op
+        op: delete
+    actions:
+      - type: delete
+
+
+  - name: cross-iam-service-id-marked-for-op
+    resource: ibm.iam-service-id
+    description: "SHOULD — Execute deferred delete on iam-service-id past mark-for-op deadline."
+    filters:
+      - type: marked-for-op
+        op: delete
+    actions:
+      - type: delete
+
+  # ===========================================================================
+  # CAN — Resource created more than 365 days ago with no governance tags
+  # ===========================================================================
+
+  - name: cross-vpc-instance-stale-untagged
+    resource: ibm.vpc-instance
+    description: "CAN — vpc-instance older than 365 days with no owner tag."
+    filters:
+      - type: age
+        op: gt
+        days: 365
+      - type: tag
+        key: owner
+        op: absent
+    actions:
+      - type: mark-for-op
+        op: delete
+        days: 14
+
+  - name: cross-vpc-volume-stale-untagged
+    resource: ibm.vpc-volume
+    description: "CAN — vpc-volume older than 365 days with no owner tag."
+    filters:
+      - type: age
+        op: gt
+        days: 365
+      - type: tag
+        key: owner
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "stale-untagged"
+
+  - name: cross-cos-bucket-stale-untagged
+    resource: ibm.cos-bucket
+    description: "CAN — cos-bucket older than 365 days with no owner tag."
+    filters:
+      - type: age
+        op: gt
+        days: 365
+      - type: tag
+        key: owner
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "stale-untagged"
+
+  - name: cross-kms-key-stale-untagged
+    resource: ibm.kms-key
+    description: "CAN — kms-key older than 365 days with no owner tag."
+    filters:
+      - type: age
+        op: gt
+        days: 365
+      - type: tag
+        key: owner
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "stale-untagged"

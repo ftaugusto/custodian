@@ -1,0 +1,332 @@
+policies:
+
+  # ---------------------------------------------------------------------------
+  # ibm.powervs-instance
+  # ---------------------------------------------------------------------------
+
+  - name: powervs-instance-error-state
+    description: |
+      MUST — PowerVS instances in ERROR state.
+    resource: ibm.powervs-instance
+    filters:
+      - type: value
+        key: status
+        op: eq
+        value: ERROR
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "error-state"
+
+  - name: powervs-instance-shutoff-stale
+    description: |
+      SHOULD — PowerVS instances stopped (SHUTOFF) for more than 30 days.
+    resource: ibm.powervs-instance
+    filters:
+      - type: value
+        key: status
+        op: eq
+        value: SHUTOFF
+      - type: age
+        op: gt
+        days: 1
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "shutoff-stale"
+
+  - name: powervs-instance-dedicated-no-justification
+    description: |
+      CAN — Dedicated proc type instances without a justification tag.
+    resource: ibm.powervs-instance
+    filters:
+      - type: value
+        key: procType
+        op: eq
+        value: dedicated
+      - type: tag
+        key: dedicated-justification
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "dedicated-no-justification"
+
+  - name: powervs-instance-oversized-processors
+    description: |
+      CAN — PowerVS instances with more than 4 processor entitlements on a shared type.
+    resource: ibm.powervs-instance
+    filters:
+      - type: value
+        key: processors
+        op: gt
+        value: 4
+    actions:
+      - delete
+      #- type: tag
+      #  tags:
+      #    custodian-review: "oversized-processors"
+
+  - name: powervs-instance-oversized-memory
+    description: |
+      CAN — PowerVS instances with more than 256 GiB memory allocation.
+    resource: ibm.powervs-instance
+    filters:
+      - type: value
+        key: memory
+        op: gt
+        value: 256
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "oversized-memory"
+
+  - name: powervs-instance-capped-high-entitlement
+    description: |
+      SHOULD — Capped proc type instances with more than 2 processor entitlements (cost risk).
+    resource: ibm.powervs-instance
+    filters:
+      - type: value
+        key: procType
+        op: eq
+        value: capped
+      - type: value
+        key: processors
+        op: gt
+        value: 2
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "capped-high-entitlement"
+
+  - name: powervs-instance-missing-owner-tag
+    description: |
+      SHOULD — PowerVS instances missing a mandatory owner tag.
+    resource: ibm.powervs-instance
+    filters:
+      - type: tag
+        key: owner
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "missing-owner-tag"
+
+  - name: powervs-instance-public-network-tag
+    description: |
+      MUST — PowerVS instances with a public network interface (pub-vlan or external IP).
+      Tags the instance for operator review. Use this policy as the safe first step
+      before moving to stop or delete actions.
+    resource: ibm.powervs-instance
+    filters:
+      - type: public-network-interface
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "public-network-interface"
+
+  - name: powervs-instance-public-network-stop
+    description: |
+      MUST — Stop PowerVS instances that have a public network interface and are ACTIVE.
+      Shutting down the instance removes exposure while keeping data intact.
+      Run the tagging policy (powervs-instance-public-network-tag) first so
+      operators can review flagged instances before enabling this policy.
+    resource: ibm.powervs-instance
+    filters:
+      - type: public-network-interface
+      - type: value
+        key: status
+        op: eq
+        value: ACTIVE
+    actions:
+      - stop
+
+  - name: powervs-instance-public-network-delete
+    description: |
+      MUST — Delete PowerVS instances with a public network interface that have
+      already been stopped and tagged for removal. Combines the public-network-interface
+      filter with a status check (SHUTOFF) and a confirming custodian-review tag so
+      only reviewed instances are permanently removed.
+    resource: ibm.powervs-instance
+    filters:
+      - type: public-network-interface
+      - type: value
+        key: status
+        op: eq
+        value: SHUTOFF
+      - type: tag
+        key: custodian-review
+        op: eq
+        value: "public-network-interface"
+    actions:
+      - delete
+
+  # ---------------------------------------------------------------------------
+  # ibm.powervs-volume
+  # ---------------------------------------------------------------------------
+
+  - name: powervs-volume-unattached
+    description: |
+      SHOULD — PowerVS volumes not attached to any instance (wasted cost).
+    resource: ibm.powervs-volume
+    filters:
+      - type: value
+        key: pvmInstanceIDs
+        op: eq
+        value: []
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "unattached-volume"
+
+  - name: powervs-volume-shareable
+    description: |
+      SHOULD — PowerVS volumes with shareable=true (potentially exposed unintentionally).
+    resource: ibm.powervs-volume
+    filters:
+      - type: value
+        key: shareable
+        op: eq
+        value: true
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "shareable-volume"
+
+  - name: powervs-volume-oversized
+    description: |
+      CAN — PowerVS volumes above 2000 GiB.
+    resource: ibm.powervs-volume
+    filters:
+      - type: value
+        key: size
+        op: gt
+        value: 2000
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "oversized-volume"
+
+  - name: powervs-volume-tier1-unattached
+    description: |
+      SHOULD — High-performance Tier-1 volumes not in active use (no attached instances).
+    resource: ibm.powervs-volume
+    filters:
+      - type: value
+        key: diskType
+        op: eq
+        value: tier1
+      - type: value
+        key: pvmInstanceIDs
+        op: eq
+        value: []
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "tier1-unattached"
+
+  - name: powervs-volume-missing-owner-tag
+    description: |
+      MUST — PowerVS volumes missing a mandatory owner tag.
+    resource: ibm.powervs-volume
+    filters:
+      - type: tag
+        key: owner
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "missing-owner-tag"
+
+  - name: powervs-volume-missing-environment-tag
+    description: |
+      MUST — PowerVS volumes missing a mandatory environment tag.
+    resource: ibm.powervs-volume
+    filters:
+      - type: tag
+        key: environment
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "missing-environment-tag"
+
+  # ---------------------------------------------------------------------------
+  # ibm.powervs-network
+  # ---------------------------------------------------------------------------
+
+  #- name: powervs-network-public-type
+  #  description: |
+  #    MUST — PowerVS networks with type pub-vlan (public). Should be private.
+  #  resource: ibm.powervs-network
+  #  filters:
+  #    - type: value
+  #      key: type
+  #      op: eq
+  #      value: pub-vlan
+  #  actions:
+  #    - delete
+      #- type: tag
+      #  tags:
+      #    custodian-review: "public-network"
+
+  - name: powervs-network-missing-owner-tag
+    description: |
+      SHOULD — PowerVS networks missing a mandatory owner tag.
+    resource: ibm.powervs-network
+    filters:
+      - type: tag
+        key: owner
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "missing-owner-tag"
+
+  # ---------------------------------------------------------------------------
+  # ibm.powervs-image
+  # ---------------------------------------------------------------------------
+
+  - name: powervs-image-stale
+    description: |
+      CAN — Imported PowerVS images older than 365 days. May be stale.
+    resource: ibm.powervs-image
+    filters:
+      - type: age
+        op: gt
+        days: 1
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "stale-image"
+
+  - name: powervs-image-not-active
+    description: |
+      SHOULD — PowerVS images not in active state.
+    resource: ibm.powervs-image
+    filters:
+      - type: value
+        key: state
+        op: ne
+        value: active
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "image-not-active"
+
+  # ---------------------------------------------------------------------------
+  # ibm.powervs-ssh-key
+  # ---------------------------------------------------------------------------
+
+  - name: powervs-ssh-key-empty-description
+    description: |
+      SHOULD — PowerVS SSH keys with empty description. Flag with custodian warning.
+    resource: ibm.powervs-ssh-key
+    filters:
+      - type: value
+        key: description
+        op: eq
+        value: ""
+    actions:
+      - type: append-description
+        notice: "[custodian] No description provided - please document key owner and purpose."

@@ -1,0 +1,14 @@
+# Runtime dependencies for the c7n_ibmcloud provider (versions verified in .venv).
+# Mirrors [project].dependencies in pyproject.toml, plus `packaging`, which
+# resources/kubernetes.py and resources/dbaas.py import.
+#
+# Install from this directory:
+#   pip install -r requirements.txt
+#   pip install -e ../..   # c7n core from this repo (registers the `ibm` provider)
+#   pip install -e . --no-deps
+ibm-cloud-sdk-core>=3.18,<4
+ibm-platform-services>=0.53
+ibm-vpc>=0.20
+ibm-cos-sdk>=2.13
+requests>=2.31
+packaging>=21.0

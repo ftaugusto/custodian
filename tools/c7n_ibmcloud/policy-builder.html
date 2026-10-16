@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<title>IBM Cloud Custodian — Policy Builder</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,"Segoe UI",system-ui,sans-serif;font-size:14px;line-height:1.6;color:#1f2328;background:#f7f8fa;min-height:100vh}
+.app{display:grid;grid-template-columns:300px 1fr;min-height:100vh}
+.sidebar{background:#fff;border-right:1px solid #e5e7eb;padding:20px;display:flex;flex-direction:column;gap:14px;overflow-y:auto}
+.logo{font-size:15px;font-weight:700;border-bottom:1px solid #e5e7eb;padding-bottom:12px}
+.logo span{color:#3b82d4}
+.section-label{font-size:11px;font-weight:700;text-transform:uppercase;color:#57606a;letter-spacing:.6px;margin-bottom:4px}
+.field-group{display:flex;flex-direction:column;gap:5px}
+label{font-size:13px;font-weight:500}
+input[type=text],select,textarea{width:100%;padding:6px 10px;border:1px solid #e5e7eb;border-radius:5px;font-size:13px;color:#1f2328;background:#fff;outline:none}
+input[type=text]:focus,select:focus{border-color:#3b82d4;box-shadow:0 0 0 3px rgba(59,130,212,.1)}
+.main{padding:22px;display:flex;flex-direction:column;gap:18px;overflow-y:auto}
+.card{background:#fff;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden}
+.card-header{padding:11px 16px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;background:#f7f8fa}
+.card-title{font-size:14px;font-weight:600}
+.card-body{padding:15px}
+.badge{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px}
+.badge-blue{background:#dbeafe;color:#1d4ed8}
+.rule-list{display:flex;flex-direction:column;gap:7px}
+.btn-remove{background:none;border:none;color:#ef4444;cursor:pointer;font-size:18px;line-height:1;padding:0 5px;border-radius:3px}
+.btn-remove:hover{background:#fee2e2}
+.btn-not{background:none;border:1px solid #e5e7eb;border-radius:3px;cursor:pointer;font-size:11px;font-weight:700;padding:2px 6px;color:#57606a;white-space:nowrap}
+.btn-not:hover{border-color:#f97316;color:#f97316}
+.btn-not.active{background:#fff7ed;border-color:#f97316;color:#ea580c}
+.rule-row.negated{border-color:#f97316;background:#fff7ed}
+.not-badge{font-size:10px;font-weight:700;color:#ea580c;background:#fed7aa;border-radius:3px;padding:1px 5px;flex-shrink:0}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:6px 13px;border-radius:5px;font-size:13px;font-weight:500;cursor:pointer;border:none}
+.btn-primary{background:#3b82d4;color:#fff}
+.btn-primary:hover{background:#2563a8}
+.btn-secondary{background:#fff;color:#1f2328;border:1px solid #e5e7eb}
+.btn-secondary:hover{background:#f7f8fa}
+.btn-sm{padding:4px 10px;font-size:12px}
+.yaml-block{background:#1e1e2e;color:#cdd6f4;font-family:"SF Mono","Fira Mono",monospace;font-size:12px;line-height:1.7;padding:15px;border-radius:6px;overflow-x:auto;white-space:pre}
+.yaml-key{color:#89b4fa}
+.yaml-str{color:#a6e3a1}
+.yaml-num{color:#fab387}
+.yaml-bool{color:#cba6f7}
+.yaml-comment{color:#6c7086}
+.copy-row{display:flex;justify-content:flex-end;margin-top:10px;gap:8px;align-items:center}
+.copy-msg{font-size:12px;color:#22c55e;opacity:0;transition:opacity .4s}
+.copy-msg.show{opacity:1}
+/* Reference table */
+.ref-search{width:100%;padding:7px 10px;border:1px solid #e5e7eb;border-radius:5px;font-size:13px;margin-bottom:10px}
+.ref-search:focus{border-color:#3b82d4;outline:none;box-shadow:0 0 0 3px rgba(59,130,212,.1)}
+.ref-table{width:100%;border-collapse:collapse;font-size:12px}
+.ref-table th{background:#f7f8fa;border:1px solid #e5e7eb;padding:7px 10px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#57606a;white-space:nowrap}
+.ref-table td{border:1px solid #e5e7eb;padding:6px 10px;vertical-align:top}
+.ref-table tr:hover td{background:#f7f8fa}
+.ref-table .res-name{font-weight:600;white-space:nowrap}
+.ref-table .res-id{font-size:10px;color:#57606a;font-family:"SF Mono","Fira Mono",monospace}
+.chip-wrap{display:flex;flex-wrap:wrap;gap:3px}
+.chip{display:inline-block;padding:2px 7px;border-radius:10px;font-size:11px;font-weight:500;white-space:nowrap}
+.chip-filter{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe}
+.chip-safe{background:#f0fdf4;color:#166534;border:1px solid #bbf7d0}
+.chip-warn{background:#fff7ed;color:#c2410c;border:1px solid #fed7aa}
+.chip-danger{background:#fef2f2;color:#991b1b;border:1px solid #fecaca}
+.ref-svc-row td{background:#f7f8fa;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#57606a;padding:5px 10px;border:1px solid #e5e7eb}
+.resource-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:5px}
+.resource-chip{padding:6px 10px;border-radius:5px;border:1px solid #e5e7eb;background:#fff;cursor:pointer;font-size:12px;font-weight:500;text-align:center;transition:all .15s}
+.resource-chip:hover{border-color:#3b82d4;color:#3b82d4}
+.resource-chip.active{border-color:#3b82d4;background:#dbeafe;color:#1d4ed8}
+.svc-label{font-size:11px;font-weight:700;text-transform:uppercase;color:#57606a;letter-spacing:.5px;grid-column:1/-1;margin-top:8px}
+.rule-row{display:flex;gap:6px;align-items:center;padding:8px;background:#f7f8fa;border-radius:5px;border:1px solid #e5e7eb;flex-wrap:wrap}
+.rule-type-lbl{min-width:110px;font-size:12px;font-weight:600;flex-shrink:0}
+.rule-row input,.rule-row select{flex:1;min-width:80px}
+.rule-row .field-wrap{display:flex;flex-direction:column;gap:2px;flex:1;min-width:80px}
+.rule-row .field-wrap small{font-size:10px;color:#57606a}
+.saved-item{padding:6px 10px;background:#f7f8fa;border:1px solid #e5e7eb;border-radius:5px;cursor:pointer;font-size:12px}
+.saved-item:hover{border-color:#3b82d4}
+footer{text-align:center;font-size:12px;color:#57606a;border-top:1px solid #e5e7eb;padding:13px;background:#fff;grid-column:1/-1}
+@media(max-width:800px){.app{grid-template-columns:1fr}.sidebar{border-right:none;border-bottom:1px solid #e5e7eb}}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="logo">☁️ <span>IBM</span> Cloud Custodian<br>
+    <small style="font-weight:400;color:#57606a">Policy Builder · c7n_ibmcloud</small>
+  </div>
+
+  <div class="field-group">
+    <div class="section-label">Policy Name</div>
+    <input type="text" id="policyName" value="ibm-new-policy" placeholder="e.g. ibm-vpc-untagged-instances"/>
+  </div>
+
+  <div class="field-group">
+    <div class="section-label">Description</div>
+    <input type="text" id="policyDesc" placeholder="What does this policy enforce?"/>
+  </div>
+
+  <div class="field-group">
+    <div class="section-label">Region</div>
+    <select id="policyRegion">
+      <option value="">— global (all regions) —</option>
+      <option value="us-south" selected>us-south</option>
+      <option value="us-east">us-east</option>
+      <option value="eu-de">eu-de</option>
+      <option value="eu-gb">eu-gb</option>
+      <option value="jp-tok">jp-tok</option>
+      <option value="jp-osa">jp-osa</option>
+      <option value="au-syd">au-syd</option>
+      <option value="ca-tor">ca-tor</option>
+      <option value="br-sao">br-sao</option>
+    </select>
+  </div>
+
+  <div style="flex:1"></div>
+
+  <div>
+    <div class="section-label">Saved Policies</div>
+    <div id="savedList" style="display:flex;flex-direction:column;gap:5px;margin-top:8px;margin-bottom:8px">
+      <div style="color:#57606a;font-size:12px">No saved policies.</div>
+    </div>
+    <button class="btn btn-secondary btn-sm" style="width:100%" onclick="savePolicy()">💾 Save Policy</button>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<main class="main">
+
+  <!-- 1. Resource Picker -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">1 — Pick a Resource</span>
+      <span id="selectedBadge" class="badge badge-blue" style="display:none"></span>
+    </div>
+    <div class="card-body">
+      <div id="resourceGrid" class="resource-grid"></div>
+    </div>
+  </div>
+
+  <!-- 2. Filters -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">2 — Filters <span style="font-weight:400;font-size:12px;color:#57606a">(all must match)</span></span>
+      <div style="display:flex;gap:6px">
+        <select id="filterSel" style="width:160px"><option value="">— choose filter —</option></select>
+        <button class="btn btn-primary btn-sm" onclick="addFilter()">+ Add</button>
+      </div>
+    </div>
+    <div class="card-body">
+      <div id="filterList" class="rule-list">
+        <div style="color:#57606a;font-size:13px">No filters — matches all resources.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. Actions -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">3 — Actions</span>
+      <div style="display:flex;gap:6px">
+        <select id="actionSel" style="width:160px"><option value="">— choose action —</option></select>
+        <button class="btn btn-primary btn-sm" onclick="addAction()">+ Add</button>
+      </div>
+    </div>
+    <div class="card-body">
+      <div id="actionList" class="rule-list">
+        <div style="color:#57606a;font-size:13px">No actions — dry-run / report only.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. YAML -->
+  <div class="card">
+    <div class="card-header"><span class="card-title">4 — Generated Policy YAML</span></div>
+    <div class="card-body">
+      <div class="yaml-block" id="yamlOut"></div>
+      <div class="copy-row">
+        <span class="copy-msg" id="copyMsg">Copied!</span>
+        <button class="btn btn-secondary btn-sm" onclick="copyYaml()">📋 Copy</button>
+        <button class="btn btn-secondary btn-sm" onclick="downloadYaml()">⬇ Download .yml</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. Resource Reference -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">5 — Resource Reference</span>
+      <span style="font-size:12px;color:#57606a">All available filters &amp; actions per resource type</span>
+    </div>
+    <div class="card-body">
+      <input type="text" class="ref-search" id="refSearch" placeholder="Search resources, filters, or actions…" oninput="filterRefTable()"/>
+      <div style="display:flex;gap:14px;margin-bottom:10px;flex-wrap:wrap;font-size:12px;align-items:center">
+        <span style="color:#57606a;font-weight:600">Action legend:</span>
+        <span><span class="chip chip-safe">safe</span> &nbsp;tag / stop / set-* — non-destructive</span>
+        <span><span class="chip chip-warn">warn</span> &nbsp;lock / disable / rotate — modify state</span>
+        <span><span class="chip chip-danger">danger</span> &nbsp;delete / release — irreversible</span>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="ref-table" id="refTable">
+          <thead>
+            <tr>
+              <th>Resource</th>
+              <th style="min-width:80px">ibm.type</th>
+              <th style="min-width:220px">Available Filters</th>
+              <th style="min-width:260px">Possible Actions</th>
+              <th style="min-width:200px">Recommended Actions</th>
+            </tr>
+          </thead>
+          <tbody id="refBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</main>
+<footer>Made with IBM Bob</footer>
+</div>
+
+<script>
+// ==========================================================
+// DATA
+// ==========================================================
+const RESOURCES = {
+  "IAM": [
+    {id:"iam-user",           label:"IAM User",         filters:["mfa-disabled","value","tag","age","marked-for-op"],  actions:["tag","remove-tag","mark-for-op","add-to-review-group"]},
+    {id:"iam-service-id",     label:"IAM Service ID",   filters:["value","tag","age"],                                 actions:["tag","remove-tag","delete"]},
+    {id:"iam-api-key",        label:"IAM API Key",      filters:["value","tag","age"],                                 actions:["tag","remove-tag","lock","unlock","delete"]},
+    {id:"iam-access-group",   label:"Access Group",     filters:["value","tag"],                                       actions:["tag","remove-tag","append-description","delete"]},
+    {id:"iam-policy",         label:"IAM Policy",       filters:["value"],                                             actions:["delete"]},
+    {id:"iam-trusted-profile",label:"Trusted Profile",  filters:["value","tag","age"],                                 actions:["tag","remove-tag","append-description","delete"]},
+    {id:"iam-custom-role",    label:"Custom Role",      filters:["value","age"],                                       actions:["append-description","delete"]},
+  ],
+  "VPC": [
+    {id:"vpc-instance",          label:"VPC Instance",        filters:["value","tag","age","resource-group","marked-for-op"],  actions:["tag","remove-tag","stop","start","reboot","delete","mark-for-op"]},
+    {id:"vpc-network",           label:"VPC Network",         filters:["value","tag","resource-group"],                        actions:["tag","remove-tag","delete"]},
+    {id:"vpc-subnet",            label:"Subnet",              filters:["value","tag","resource-group"],                        actions:["tag","delete"]},
+    {id:"vpc-security-group",    label:"Security Group",      filters:["value","tag","resource-group","rule-match"],           actions:["tag","delete"]},
+    {id:"vpc-floating-ip",       label:"Floating IP",         filters:["value","tag"],                                         actions:["tag","release"]},
+    {id:"vpc-volume",            label:"Block Volume",        filters:["value","tag","age","resource-group"],                  actions:["tag","remove-tag","delete"]},
+    {id:"vpc-load-balancer",     label:"Load Balancer",       filters:["value","tag"],                                         actions:["tag","delete"]},
+    {id:"vpc-public-gateway",    label:"Public Gateway",      filters:["value","tag"],                                         actions:["tag","delete"]},
+    {id:"vpc-network-acl",       label:"Network ACL",         filters:["value","tag","resource-group","acl-rule-match"],       actions:["tag","delete"]},
+    {id:"vpc-vpn-gateway",       label:"VPN Gateway",         filters:["value","tag"],                                         actions:["tag","delete"]},
+    {id:"vpc-bare-metal",        label:"Bare Metal Server",   filters:["value","tag","age","resource-group"],                  actions:["tag","remove-tag","delete"]},
+    {id:"vpc-dedicated-host",    label:"Dedicated Host",      filters:["value","tag","age","resource-group"],                  actions:["tag","remove-tag","delete"]},
+    {id:"vpc-file-share",        label:"File Share",          filters:["value","tag","age","resource-group"],                  actions:["tag","remove-tag","delete"]},
+    {id:"vpc-ssh-key",           label:"SSH Key (VPC)",       filters:["value","tag","age","resource-group"],                  actions:["tag","remove-tag","delete"]},
+    {id:"vpc-instance-group",    label:"Instance Group",      filters:["value","tag","resource-group"],                        actions:["tag","delete"]},
+    {id:"vpc-instance-template", label:"Instance Template",   filters:["value","tag","age","resource-group"],                  actions:["tag","delete"]},
+    {id:"vpc-snapshot",          label:"Block Snapshot",      filters:["value","tag","age","resource-group","orphaned"],       actions:["tag","delete"]},
+    {id:"vpc-backup-policy",     label:"Backup Policy",       filters:["value","tag","resource-group","unused"],               actions:["tag","delete"]},
+    {id:"vpc-transit-gateway",   label:"Transit Gateway",     filters:["value","tag","age"],                                   actions:["tag","delete"]},
+  ],
+  "COS": [
+    {id:"cos-bucket",         label:"COS Bucket",       filters:["value","tag","age","public-access","versioning-enabled","customer-managed-key"],actions:["tag","remove-tag","set-versioning","set-encryption","set-lifecycle"]},
+  ],
+  "KMS": [
+    {id:"kms-key",            label:"Key Protect Key",  filters:["value","tag","age","state","rotation-policy"],       actions:["tag","remove-tag","disable","enable","rotate","delete"]},
+    {id:"kms-key-ring",       label:"Key Ring",         filters:["value"],                                             actions:["delete"]},
+  ],
+  "Kubernetes": [
+    {id:"iks-cluster",        label:"IKS Cluster",      filters:["value","tag","age","version","resource-group","kms-enabled"],      actions:["tag","remove-tag","delete"]},
+    {id:"roks-cluster",       label:"ROKS Cluster",     filters:["value","tag","age","version","resource-group","kms-enabled"],      actions:["tag","remove-tag","delete"]},
+    {id:"iks-worker-pool",    label:"Worker Pool",      filters:["value","tag"],                                                     actions:["tag"]},
+  ],
+  "PowerVS": [
+    {id:"powervs-instance",   label:"PowerVS Instance", filters:["value","tag","age","public-network-interface"],                    actions:["tag","remove-tag","stop","start","delete"]},
+    {id:"powervs-volume",     label:"PowerVS Volume",   filters:["value","tag"],                                                     actions:["tag","remove-tag","delete"]},
+    {id:"powervs-network",    label:"PowerVS Network",  filters:["value","tag"],                                                     actions:["tag","remove-tag","delete"]},
+    {id:"powervs-image",      label:"PowerVS Image",    filters:["value","age"],                                                     actions:["delete"]},
+    {id:"powervs-ssh-key",    label:"SSH Key (PowerVS)",filters:["value","age"],                                                     actions:["append-description","delete"]},
+  ],
+  "Databases": [
+    {id:"dbaas-postgresql",   label:"PostgreSQL",       filters:["value","tag","age","version","plan","resource-group"],             actions:["tag","remove-tag","scale","delete"]},
+    {id:"dbaas-mysql",        label:"MySQL",            filters:["value","tag","age","version","plan","resource-group"],             actions:["tag","remove-tag","scale","delete"]},
+    {id:"dbaas-mongodb",      label:"MongoDB",          filters:["value","tag","age","version","plan","resource-group"],             actions:["tag","remove-tag","scale","delete"]},
+    {id:"dbaas-redis",        label:"Redis",            filters:["value","tag","age","version","plan","resource-group"],             actions:["tag","remove-tag","scale","delete"]},
+    {id:"dbaas-elasticsearch",label:"Elasticsearch",    filters:["value","tag","age","version","plan","resource-group"],             actions:["tag","remove-tag","scale","delete"]},
+    {id:"dbaas-rabbitmq",     label:"RabbitMQ",         filters:["value","tag","age","version","plan","resource-group"],             actions:["tag","remove-tag","scale","delete"]},
+  ],
+};
+
+const FILTER_DEFS = {
+  "value":              {label:"Value",              fields:[{n:"key",ph:"e.g. status"},{n:"op",type:"sel",opts:["eq","ne","gt","lt","ge","le","contains","absent","present"]},{n:"value",ph:"e.g. running"}]},
+  "rule-match":         {label:"Rule Match",         fields:[
+    {n:"array",   ph:"rules",          lbl:"Array field"},
+    {n:"port",    ph:"22",type:"number",lbl:"Port"},
+    {n:"dir",     type:"sel",opts:["inbound","outbound","any"],lbl:"Direction"},
+    {n:"cidr",    ph:"0.0.0.0/0",      lbl:"Remote CIDR"},
+    {n:"match",   type:"sel",opts:["any","none"],lbl:"Match"},
+  ]},
+  "acl-rule-match":     {label:"ACL Rule Match",     fields:[
+    {n:"array",   ph:"rules",          lbl:"Array field"},
+    {n:"port",    ph:"22",type:"number",lbl:"Dest port"},
+    {n:"dir",     type:"sel",opts:["inbound","outbound","any"],lbl:"Direction"},
+    {n:"action",  type:"sel",opts:["any","allow","deny"],      lbl:"Action"},
+    {n:"source",  ph:"0.0.0.0/0",      lbl:"Source CIDR"},
+    {n:"dest",    ph:"",               lbl:"Dest CIDR (opt)"},
+    {n:"match",   type:"sel",opts:["any","none"],lbl:"Match"},
+  ]},
+
+  "tag":                {label:"Tag",                fields:[{n:"key",ph:"tag key e.g. environment"},{n:"op",type:"sel",opts:["absent","present","eq","ne"]},{n:"value",ph:"tag value (eq/ne)"}]},
+  "age":                {label:"Age (days)",         fields:[{n:"op",type:"sel",opts:["gt","lt","ge","le"]},{n:"days",ph:"90",type:"number"}]},
+  "resource-group":     {label:"Resource Group",     fields:[{n:"value",ph:"group name or ID"}]},
+  "mfa-disabled":       {label:"MFA Disabled",       fields:[]},
+  "public-access":      {label:"Public Access",      fields:[{n:"value",type:"sel",opts:["true","false"],lbl:"Enabled?"}]},
+  "versioning-enabled": {label:"Versioning",         fields:[{n:"value",type:"sel",opts:["true","false"],lbl:"Enabled?"}]},
+  "customer-managed-key":{label:"Customer-Managed Key",fields:[{n:"value",type:"sel",opts:["false","true"],lbl:"Has CMK?"}]},
+  "state":              {label:"Key State",          fields:[{n:"value",type:"sel",opts:["active","deactivated","destroyed","suspended","pre-activation"],lbl:"State"}]},
+  "rotation-policy":        {label:"Rotation Policy",        fields:[{n:"enabled",type:"sel",opts:["true","false"],lbl:"Enabled?"}]},
+  "version":                {label:"Version",                fields:[{n:"op",type:"sel",opts:["lt","le","ge","gt","eq","ne"]},{n:"value",ph:"e.g. 1.28"}]},
+  "plan":                   {label:"Plan",                   fields:[{n:"value",ph:"e.g. standard"}]},
+  "marked-for-op":          {label:"Marked For Op",          fields:[{n:"op",ph:"e.g. stop",lbl:"Op"},{n:"skew",ph:"0",type:"number",lbl:"Skew days"}]},
+  "orphaned":               {label:"Orphaned Snapshot",      fields:[]},
+  "unused":                 {label:"Unused (no plans)",      fields:[]},
+  "kms-enabled":            {label:"KMS Enabled",            fields:[{n:"enabled",type:"sel",opts:["false","true"],lbl:"KMS enabled?"}]},
+  "public-network-interface":{label:"Public Network Iface",  fields:[]},
+};
+
+const ACTION_DEFS = {
+  "tag":               {label:"Tag",                     fields:[{n:"tags",ph:"env:prod, owner:infra",lbl:"Tags (key:value, ...)"}]},
+  "remove-tag":        {label:"Remove Tag",              fields:[{n:"tags",ph:"env, owner",lbl:"Keys to remove (comma-separated)"}]},
+  "mark-for-op":       {label:"Mark For Op",             fields:[{n:"op",ph:"stop",lbl:"Operation"},{n:"days",ph:"7",type:"number",lbl:"Days ahead"}]},
+  "stop":              {label:"Stop",                    fields:[]},
+  "start":             {label:"Start",                   fields:[]},
+  "reboot":            {label:"Reboot",                  fields:[]},
+  "delete":            {label:"Delete",                  fields:[{n:"force",type:"sel",opts:["false","true"],lbl:"Force?"}]},
+  "release":           {label:"Release (FIP)",           fields:[]},
+  "lock":              {label:"Lock API Key",            fields:[]},
+  "unlock":            {label:"Unlock API Key",          fields:[]},
+  "disable":           {label:"Disable Key",             fields:[]},
+  "enable":            {label:"Enable Key",              fields:[]},
+  "rotate":            {label:"Rotate Key",              fields:[]},
+  "set-versioning":    {label:"Set Versioning",          fields:[{n:"enabled",type:"sel",opts:["true","false"],lbl:"Enabled?"}]},
+  "set-encryption":    {label:"Set Encryption (flag only)", fields:[]},
+  "set-lifecycle":     {label:"Set Lifecycle",           fields:[{n:"days",ph:"90",type:"number",lbl:"Expiry days"}]},
+  "scale":             {label:"Scale",                   fields:[{n:"memory_allocation",ph:"4096",type:"number",lbl:"Memory (MB)"},{n:"disk_allocation",ph:"20480",type:"number",lbl:"Disk (MB)"}]},
+  "append-description":{label:"Append Description",      fields:[{n:"notice",ph:"[custodian] review required",lbl:"Notice text"}]},
+  "add-to-review-group":{label:"Add to Review Group",    fields:[{n:"group",ph:"custodian-review",lbl:"Access group name"}]},
+};
+
+// ==========================================================
+// STATE
+// ==========================================================
+let S = { resource:null, filters:[], actions:[], saved:[] };
+
+// ==========================================================
+// RESOURCE GRID
+// ==========================================================
+function buildGrid() {
+  const g = document.getElementById("resourceGrid");
+  g.innerHTML = "";
+  for (const [svc, list] of Object.entries(RESOURCES)) {
+    const lbl = document.createElement("div");
+    lbl.className = "svc-label"; lbl.textContent = svc;
+    g.appendChild(lbl);
+    list.forEach(r => {
+      const c = document.createElement("div");
+      c.className = "resource-chip" + (S.resource===r.id?" active":"");
+      c.textContent = r.label;
+      c.title = "ibm."+r.id;
+      c.onclick = () => pickResource(r.id);
+      g.appendChild(c);
+    });
+  }
+}
+
+function pickResource(id) {
+  S.resource = id; S.filters = []; S.actions = [];
+  buildGrid();
+  const b = document.getElementById("selectedBadge");
+  b.textContent = "ibm."+id; b.style.display="";
+  const r = findRes(id);
+  fillSel("filterSel", r.filters, FILTER_DEFS);
+  fillSel("actionSel", r.actions, ACTION_DEFS);
+  renderFilters(); renderActions(); renderYaml();
+}
+
+function findRes(id) {
+  for (const l of Object.values(RESOURCES)) { const r=l.find(x=>x.id===id); if(r) return r; }
+  return {filters:[],actions:[]};
+}
+
+function fillSel(selId, allowed, defs) {
+  const s = document.getElementById(selId);
+  s.innerHTML = '<option value="">— choose —</option>';
+  allowed.forEach(k => {
+    if(!defs[k]) return;
+    const o = document.createElement("option");
+    o.value=k; o.textContent=defs[k].label; s.appendChild(o);
+  });
+}
+
+// ==========================================================
+// FILTERS
+// ==========================================================
+function addFilter() {
+  const t = document.getElementById("filterSel").value;
+  if(!t) return;
+  S.filters.push({type:t,params:{},negate:false});
+  renderFilters(); renderYaml();
+}
+
+function removeFilter(i) { S.filters.splice(i,1); renderFilters(); renderYaml(); }
+
+function toggleNot(i) { S.filters[i].negate=!S.filters[i].negate; renderFilters(); renderYaml(); }
+
+function renderFilters() {
+  const el = document.getElementById("filterList");
+  if(!S.filters.length){ el.innerHTML='<div style="color:#57606a;font-size:13px">No filters — matches all resources.</div>'; return; }
+  el.innerHTML="";
+  S.filters.forEach((f,i) => {
+    const def = FILTER_DEFS[f.type]; if(!def) return;
+    const row = document.createElement("div");
+    row.className="rule-row"+(f.negate?" negated":"");
+    // NOT badge (shown when active)
+    if(f.negate){ const nb=document.createElement("span"); nb.className="not-badge"; nb.textContent="NOT"; row.appendChild(nb); }
+    const lbl = document.createElement("span"); lbl.className="rule-type-lbl"; lbl.textContent=def.label;
+    row.appendChild(lbl);
+    def.fields.forEach(field => {
+      const wrap = document.createElement("div"); wrap.className="field-wrap";
+      if(field.lbl){ const s=document.createElement("small"); s.textContent=field.lbl; wrap.appendChild(s); }
+      if(field.type==="sel"){
+        const sel=document.createElement("select");
+        field.opts.forEach(o=>{ const opt=document.createElement("option"); opt.value=o; opt.textContent=o; if(f.params[field.n]===o)opt.selected=true; sel.appendChild(opt); });
+        if(!f.params[field.n]) f.params[field.n]=field.opts[0];
+        sel.onchange=()=>{f.params[field.n]=sel.value;renderYaml();};
+        wrap.appendChild(sel);
+      } else {
+        const inp=document.createElement("input"); inp.type=field.type||"text"; inp.placeholder=field.ph||""; inp.value=f.params[field.n]||"";
+        inp.oninput=()=>{f.params[field.n]=inp.value;renderYaml();};
+        wrap.appendChild(inp);
+      }
+      row.appendChild(wrap);
+    });
+    // NOT toggle button
+    const notBtn=document.createElement("button");
+    notBtn.className="btn-not"+(f.negate?" active":"");
+    notBtn.textContent="NOT"; notBtn.title="Wrap this filter in a not: block";
+    notBtn.onclick=()=>toggleNot(i);
+    row.appendChild(notBtn);
+    const btn=document.createElement("button"); btn.className="btn-remove"; btn.innerHTML="×"; btn.onclick=()=>removeFilter(i);
+    row.appendChild(btn);
+    el.appendChild(row);
+  });
+}
+
+// ==========================================================
+// ACTIONS
+// ==========================================================
+function addAction() {
+  const t = document.getElementById("actionSel").value;
+  if(!t) return;
+  S.actions.push({type:t,params:{}});
+  renderActions(); renderYaml();
+}
+
+function removeAction(i) { S.actions.splice(i,1); renderActions(); renderYaml(); }
+
+function renderActions() {
+  const el = document.getElementById("actionList");
+  if(!S.actions.length){ el.innerHTML='<div style="color:#57606a;font-size:13px">No actions — dry-run / report only.</div>'; return; }
+  el.innerHTML="";
+  S.actions.forEach((a,i) => {
+    const def = ACTION_DEFS[a.type]; if(!def) return;
+    const row = document.createElement("div"); row.className="rule-row";
+    const lbl = document.createElement("span"); lbl.className="rule-type-lbl"; lbl.textContent=def.label;
+    row.appendChild(lbl);
+    def.fields.forEach(field => {
+      const wrap=document.createElement("div"); wrap.className="field-wrap";
+      if(field.lbl){ const s=document.createElement("small"); s.textContent=field.lbl; wrap.appendChild(s); }
+      if(field.type==="sel"){
+        const sel=document.createElement("select");
+        field.opts.forEach(o=>{ const opt=document.createElement("option"); opt.value=o; opt.textContent=o; if(a.params[field.n]===o)opt.selected=true; sel.appendChild(opt); });
+        if(!a.params[field.n]) a.params[field.n]=field.opts[0];
+        sel.onchange=()=>{a.params[field.n]=sel.value;renderYaml();};
+        wrap.appendChild(sel);
+      } else {
+        const inp=document.createElement("input"); inp.type=field.type||"text"; inp.placeholder=field.ph||""; inp.value=a.params[field.n]||"";
+        inp.oninput=()=>{a.params[field.n]=inp.value;renderYaml();};
+        wrap.appendChild(inp);
+      }
+      row.appendChild(wrap);
+    });
+    const btn=document.createElement("button"); btn.className="btn-remove"; btn.innerHTML="×"; btn.onclick=()=>removeAction(i);
+    row.appendChild(btn);
+    el.appendChild(row);
+  });
+}
+
+// ==========================================================
+// YAML GENERATION
+// ==========================================================
+function _buildRuleMatch(pr) {
+  const arr  = pr.array || "rules";
+  const port = Number(pr.port) || 22;
+  const cidr = pr.cidr || "0.0.0.0/0";
+  const match = pr.match || "any";
+  const parts = [
+    "port_min <= `" + port + "`",
+    "port_max >= `" + port + "`"
+  ];
+  if (pr.dir && pr.dir !== "any") parts.push("direction == `" + pr.dir + "`");
+  if (cidr) parts.push("remote.cidr_block == `" + cidr + "`");
+  const key = arr + "[?" + parts.join(" && ") + "]";
+  return { type: "value", key: key, op: match === "any" ? "ne" : "eq", value: [] };
+}
+
+
+function _buildACLRuleMatch(pr) {
+  const arr   = pr.array || "rules";
+  const port  = Number(pr.port) || 22;
+  const match = pr.match || "any";
+  const parts = [
+    "destination_port_min <= `" + port + "`",
+    "destination_port_max >= `" + port + "`"
+  ];
+  if (pr.dir && pr.dir !== "any")    parts.push("direction == `" + pr.dir + "`");
+  if (pr.action && pr.action !== "any") parts.push("action == `" + pr.action + "`");
+  if (pr.source) parts.push("source == `" + pr.source + "`");
+  if (pr.dest)   parts.push("destination == `" + pr.dest + "`");
+  const key = arr + "[?" + parts.join(" && ") + "]";
+  return { type: "value", key: key, op: match === "any" ? "ne" : "eq", value: [] };
+}
+
+
+function buildPolicy() {
+  const name = document.getElementById("policyName").value.trim()||"ibm-policy";
+  const desc = document.getElementById("policyDesc").value.trim();
+  const region = document.getElementById("policyRegion").value;
+  const resource = S.resource ? "ibm."+S.resource : "ibm.vpc-instance";
+  const p = {name, resource};
+  if(desc) p.description=desc;
+  if(region) p.region=region;
+
+  if(S.filters.length) p.filters = S.filters.map(f=>{
+    const t=f.type, pr=f.params;
+    let obj;
+    if(t==="mfa-disabled") obj={type:"mfa-disabled"};
+    else if(t==="public-access") obj={type:"public-access",value:pr.value==="true"};
+    else if(t==="versioning-enabled") obj={type:"versioning-enabled",value:pr.value==="true"};
+    else if(t==="customer-managed-key") obj={type:"customer-managed-key",value:pr.value!=="false"};
+    else if(t==="rotation-policy") obj={type:"rotation-policy",enabled:pr.enabled==="true"};
+    else if(t==="resource-group") obj={type:"resource-group",value:pr.value||""};
+    else if(t==="state") obj={type:"state",value:pr.value||"active"};
+    else if(t==="plan") obj={type:"plan",value:pr.value||""};
+    else if(t==="tag"){
+      obj={type:"tag",key:pr.key||"",op:pr.op||"present"};
+      if(!["absent","present"].includes(obj.op)&&pr.value) obj.value=pr.value;
+    }
+    else if(t==="age") obj={type:"age",op:pr.op||"gt",days:Number(pr.days)||90};
+    else if(t==="version") obj={type:"version",op:pr.op||"lt",value:pr.value||"0"};
+    else if(t==="marked-for-op"){obj={type:"marked-for-op",op:pr.op||"stop"}; if(pr.skew) obj.skew=Number(pr.skew);}
+    else if(t==="rule-match") obj=_buildRuleMatch(pr);
+    else if(t==="acl-rule-match") obj=_buildACLRuleMatch(pr);
+    else if(t==="orphaned") obj={type:"orphaned"};
+    else if(t==="unused")   obj={type:"unused"};
+    else if(t==="kms-enabled") obj={type:"kms-enabled",enabled:pr.enabled!=="false"};
+    else if(t==="public-network-interface") obj={type:"public-network-interface"};
+    else obj={type:"value",key:pr.key||"",op:pr.op||"eq",value:pr.value||""};
+    // carry negate flag — renderYaml reads and removes it
+    if(f.negate) obj._negate=true;
+    return obj;
+  });
+
+  if(S.actions.length) p.actions = S.actions.map(a=>{
+    const t=a.type, pr=a.params;
+    if(!ACTION_DEFS[t].fields.length) return t;
+    const o={type:t};
+    if(t==="tag"){ const tags={}; (pr.tags||"").split(",").forEach(kv=>{const[k,v]=kv.trim().split(":").map(s=>s.trim()); if(k&&v!==undefined)tags[k]=v;}); if(Object.keys(tags).length) o.tags=tags; }
+    else if(t==="remove-tag"){ o.tags=(pr.tags||"").split(",").map(s=>s.trim()).filter(Boolean); }
+    else if(t==="mark-for-op"){ if(pr.op)o.op=pr.op; if(pr.days)o.days=Number(pr.days); }
+    else if(t==="set-versioning"){ o.enabled=pr.enabled!=="false"; }
+    // set-encryption: IBM COS has no per-bucket SSE API — action logs a warning only
+    else if(t==="set-lifecycle"){ o.rules=[{ID:"expire-old-objects",Status:"Enabled",Expiration:{Days:Number(pr.days)||90}}]; }
+    else if(t==="scale"){ if(pr.memory_allocation)o.memory_allocation=Number(pr.memory_allocation); if(pr.disk_allocation)o.disk_allocation=Number(pr.disk_allocation); }
+    else if(t==="delete"){ if(pr.force==="true")o.force=true; }
+    else if(t==="append-description"){ if(pr.notice)o.notice=pr.notice; }
+    else if(t==="kms-enabled"){ o.enabled=pr.enabled!=="false"; }
+    return o;
+  });
+
+  return p;
+}
+
+// Minimal YAML serialiser
+function toYaml(v, ind) {
+  ind=ind||0; const p="  ".repeat(ind);
+  if(v===null||v===undefined) return "null";
+  if(typeof v==="boolean") return v?"true":"false";
+  if(typeof v==="number") return String(v);
+  if(typeof v==="string") return yStr(v);
+  if(Array.isArray(v)){
+    if(!v.length) return "[]";
+    return v.map(item=>{
+      if(typeof item==="string"||typeof item==="number"||typeof item==="boolean") return p+"- "+toYaml(item);
+      const lines=Object.entries(item).map(([k,val],j)=>{
+        const pref=j===0?p+"- ":p+"  ";
+        if(typeof val==="object"&&!Array.isArray(val)&&val!==null){
+          return pref+k+":\n"+Object.entries(val).map(([dk,dv])=>p+"    "+dk+": "+toYaml(dv)).join("\n");
+        }
+        if(Array.isArray(val)) return pref+k+":\n"+val.map(x=>p+"    - "+toYaml(x)).join("\n");
+        return pref+k+": "+toYaml(val);
+      });
+      return lines.join("\n");
+    }).join("\n");
+  }
+  // object
+  return Object.entries(v).map(([k,val])=>{
+    if(typeof val==="object"&&!Array.isArray(val)&&val!==null) return p+k+":\n"+toYaml(val,ind+1);
+    if(Array.isArray(val)) return p+k+":\n"+toYaml(val,ind+1);
+    return p+k+": "+toYaml(val);
+  }).join("\n");
+}
+
+function yStr(s){
+  if(!s) return '""';
+  if(/[:#\[\]{},'"&*?|<>=!%@`\n]/.test(s)||s.trim()!==s) return '"'+s.replace(/\\/g,'\\\\').replace(/"/g,'\\"')+'"';
+  return s;
+}
+
+function highlight(yaml){
+  return yaml
+    .replace(/^(\s*)([\w-]+)(:)/gm,'$1<span class="yaml-key">$2</span>$3')
+    .replace(/: (true|false)\b/g,': <span class="yaml-bool">$1</span>')
+    .replace(/: (-?[0-9]+(?:\.[0-9]+)?)\b/g,': <span class="yaml-num">$1</span>')
+    .replace(/^(\s*- )([^<\n{[][^\n]*)/gm,'$1<span class="yaml-str">$2</span>')
+    .replace(/#[^\n]*/g,m=>'<span class="yaml-comment">'+m+'</span>');
+}
+
+function renderYaml(){
+  const p=buildPolicy();
+  const lines=["policies:","  - name: "+yStr(p.name),"    resource: "+yStr(p.resource)];
+  if(p.description) lines.push("    description: "+yStr(p.description));
+  if(p.region) lines.push("    region: "+yStr(p.region));
+  if(p.filters&&p.filters.length){
+    lines.push("    filters:");
+    p.filters.forEach(f=>{
+      if(typeof f==="string"){lines.push("      - "+f);return;}
+      // Extract negate flag (not serialised as a YAML key)
+      const negate=f._negate; delete f._negate;
+      if(negate){
+        lines.push("      - not:");
+      }
+      const indent=negate?"          ":"      ";
+      const firstPref=negate?"          - ":indent+"- ";
+      const restPref=negate?"            ":indent+"  ";
+      const entries=Object.entries(f);
+      entries.forEach(([k,v],j)=>{
+        const pref=j===0?firstPref:restPref;
+        if(typeof v==="object"&&v!==null&&!Array.isArray(v)){
+          lines.push(pref+k+":");
+          Object.entries(v).forEach(([dk,dv])=>lines.push(restPref+"  "+dk+": "+toYaml(dv)));
+        } else if(Array.isArray(v)){
+          if(!v.length){ lines.push(pref+k+": []"); }
+          else { lines.push(pref+k+":"); v.forEach(x=>lines.push(restPref+"  - "+toYaml(x))); }
+        } else {
+          lines.push(pref+k+": "+toYaml(v));
+        }
+      });
+    });
+  }
+  if(p.actions&&p.actions.length){
+    lines.push("    actions:");
+    p.actions.forEach(a=>{
+      if(typeof a==="string"){lines.push("      - "+a);return;}
+      const entries=Object.entries(a);
+      entries.forEach(([k,v],j)=>{
+        const pref=j===0?"      - ":"        ";
+        if(typeof v==="object"&&v!==null&&!Array.isArray(v)){
+          lines.push(pref+k+":");
+          Object.entries(v).forEach(([dk,dv])=>lines.push("          "+dk+": "+toYaml(dv)));
+        } else if(Array.isArray(v)){
+          lines.push(pref+k+":");
+          v.forEach(x=>{
+            if(typeof x==="object"){
+              const xe=Object.entries(x);
+              xe.forEach(([xk,xv],xi)=>{
+                const xp=xi===0?"          - ":"            ";
+                lines.push(xp+xk+": "+toYaml(xv));
+              });
+            } else lines.push("          - "+toYaml(x));
+          });
+        } else {
+          lines.push(pref+k+": "+toYaml(v));
+        }
+      });
+    });
+  }
+  document.getElementById("yamlOut").innerHTML=highlight(lines.join("\n"));
+}
+
+function copyYaml(){
+  const text=document.getElementById("yamlOut").textContent;
+  navigator.clipboard.writeText(text).then(()=>{
+    const m=document.getElementById("copyMsg"); m.classList.add("show");
+    setTimeout(()=>m.classList.remove("show"),1800);
+  });
+}
+
+function downloadYaml(){
+  const text=document.getElementById("yamlOut").textContent;
+  const name=(document.getElementById("policyName").value.trim()||"ibm-policy")+".yml";
+  const a=document.createElement("a");
+  a.href="data:text/yaml;charset=utf-8,"+encodeURIComponent(text);
+  a.download=name; a.click();
+}
+
+// ==========================================================
+// SAVE / LOAD
+// ==========================================================
+function savePolicy(){
+  const p=buildPolicy();
+  const entry={...p,_s:{resource:S.resource,filters:JSON.parse(JSON.stringify(S.filters)),actions:JSON.parse(JSON.stringify(S.actions))}};
+  const idx=S.saved.findIndex(x=>x.name===p.name);
+  if(idx>=0) S.saved[idx]=entry; else S.saved.push(entry);
+  renderSaved();
+}
+
+function loadPolicy(i){
+  const p=S.saved[i];
+  document.getElementById("policyName").value=p.name||"";
+  document.getElementById("policyDesc").value=p.description||"";
+  document.getElementById("policyRegion").value=p.region||"";
+  S.resource=p._s.resource; S.filters=p._s.filters; S.actions=p._s.actions;
+  buildGrid();
+  if(S.resource){
+    const b=document.getElementById("selectedBadge"); b.textContent="ibm."+S.resource; b.style.display="";
+    const r=findRes(S.resource);
+    fillSel("filterSel",r.filters,FILTER_DEFS);
+    fillSel("actionSel",r.actions,ACTION_DEFS);
+  }
+  renderFilters(); renderActions(); renderYaml();
+}
+
+function renderSaved(){
+  const el=document.getElementById("savedList");
+  if(!S.saved.length){el.innerHTML='<div style="color:#57606a;font-size:12px">No saved policies.</div>';return;}
+  el.innerHTML="";
+  S.saved.forEach((p,i)=>{
+    const item=document.createElement("div"); item.className="saved-item";
+    item.innerHTML='<div style="font-weight:600">'+p.name+'</div><div style="color:#57606a">ibm.'+(p._s.resource||"?")+'</div>';
+    item.onclick=()=>loadPolicy(i);
+    el.appendChild(item);
+  });
+}
+
+// ==========================================================
+// LIVE UPDATE HOOKS
+// ==========================================================
+document.getElementById("policyName").oninput=renderYaml;
+document.getElementById("policyDesc").oninput=renderYaml;
+document.getElementById("policyRegion").onchange=renderYaml;
+
+// ==========================================================
+// RESOURCE REFERENCE TABLE
+// ==========================================================
+
+// Classify actions by risk level
+const ACTION_CLASS = {
+  // safe — non-destructive
+  "tag":"safe","remove-tag":"safe","mark-for-op":"safe",
+  "stop":"safe","start":"safe","reboot":"safe",
+  "set-versioning":"safe","set-encryption":"safe","set-lifecycle":"safe",
+  "scale":"safe","enable":"safe","append-description":"safe",
+  // warn — modify state, potentially disruptive
+  "lock":"warn","unlock":"warn","disable":"warn","rotate":"warn",
+  // danger — irreversible
+  "delete":"danger","release":"danger",
+};
+
+// Recommended actions per resource type — curated subset of actions that are
+// common, safe-to-automate, or the primary use-case for the resource.
+const RECOMMENDED = {
+  "iam-user":           ["tag","mark-for-op","add-to-review-group"],
+  "iam-service-id":     ["tag","remove-tag","delete"],
+  "iam-api-key":        ["tag","lock","delete"],
+  "iam-access-group":   ["tag","append-description","delete"],
+  "iam-policy":         ["delete"],
+  "iam-trusted-profile":["tag","append-description","delete"],
+  "iam-custom-role":    ["append-description","delete"],
+  "vpc-instance":       ["tag","stop","mark-for-op","delete"],
+  "vpc-network":        ["tag","delete"],
+  "vpc-subnet":         ["tag"],
+  "vpc-security-group": ["tag","delete"],
+  "vpc-floating-ip":    ["release"],
+  "vpc-volume":         ["tag","delete"],
+  "vpc-load-balancer":  ["tag","delete"],
+  "vpc-public-gateway": ["tag","delete"],
+  "vpc-network-acl":    ["tag"],
+  "vpc-vpn-gateway":    ["tag","delete"],
+  "vpc-bare-metal":     ["tag","stop","delete"],
+  "vpc-dedicated-host": ["tag","delete"],
+  "vpc-file-share":     ["tag","delete"],
+  "vpc-ssh-key":        ["tag","delete"],
+  "vpc-instance-group": ["tag","delete"],
+  "vpc-instance-template":["tag","delete"],
+  "vpc-snapshot":       ["tag","delete"],
+  "vpc-backup-policy":  ["delete"],
+  "vpc-transit-gateway":["tag","delete"],
+  "cos-bucket":         ["tag","set-versioning","set-lifecycle"],
+  "kms-key":            ["tag","rotate","disable","delete"],
+  "kms-key-ring":       ["delete"],
+  "iks-cluster":        ["tag","delete"],
+  "roks-cluster":       ["tag","delete"],
+  "iks-worker-pool":    ["tag"],
+  "powervs-instance":   ["tag","stop","delete"],
+  "powervs-volume":     ["tag","delete"],
+  "powervs-network":    ["tag","delete"],
+  "powervs-image":      ["delete"],
+  "powervs-ssh-key":    ["append-description","delete"],
+  "dbaas-postgresql":   ["tag","scale","delete"],
+  "dbaas-mysql":        ["tag","scale","delete"],
+  "dbaas-mongodb":      ["tag","scale","delete"],
+  "dbaas-redis":        ["tag","scale","delete"],
+  "dbaas-elasticsearch":["tag","scale","delete"],
+  "dbaas-rabbitmq":     ["tag","delete"],
+};
+
+function actionChip(key) {
+  const cls = ACTION_CLASS[key] || "safe";
+  const label = ACTION_DEFS[key] ? ACTION_DEFS[key].label : key;
+  return '<span class="chip chip-'+cls+'" title="'+key+'">'+label+'</span>';
+}
+
+function filterChip(key) {
+  const label = FILTER_DEFS[key] ? FILTER_DEFS[key].label : key;
+  return '<span class="chip chip-filter" title="'+key+'">'+label+'</span>';
+}
+
+function buildRefTable() {
+  const tbody = document.getElementById("refBody");
+  tbody.innerHTML = "";
+  for (const [svc, list] of Object.entries(RESOURCES)) {
+    // Service group header row
+    const hrow = document.createElement("tr");
+    hrow.className = "ref-svc-row";
+    hrow.dataset.svc = svc.toLowerCase();
+    const hcell = document.createElement("td");
+    hcell.colSpan = 5;
+    hcell.textContent = svc;
+    hrow.appendChild(hcell);
+    tbody.appendChild(hrow);
+
+    list.forEach(r => {
+      const tr = document.createElement("tr");
+      tr.dataset.search = [
+        r.label, r.id, svc,
+        ...r.filters, ...r.actions,
+        ...(RECOMMENDED[r.id]||[])
+      ].join(" ").toLowerCase();
+
+      // Resource name + id
+      const tdName = document.createElement("td");
+      tdName.innerHTML = '<div class="res-name">'+r.label+'</div>';
+      tr.appendChild(tdName);
+
+      const tdId = document.createElement("td");
+      tdId.innerHTML = '<span class="res-id">ibm.'+r.id+'</span>';
+      tr.appendChild(tdId);
+
+      // Filters
+      const tdFilters = document.createElement("td");
+      tdFilters.innerHTML = '<div class="chip-wrap">'+r.filters.map(filterChip).join("")+'</div>';
+      tr.appendChild(tdFilters);
+
+      // All possible actions
+      const tdActions = document.createElement("td");
+      tdActions.innerHTML = '<div class="chip-wrap">'+r.actions.map(actionChip).join("")+'</div>';
+      tr.appendChild(tdActions);
+
+      // Recommended actions
+      const rec = RECOMMENDED[r.id] || [];
+      const tdRec = document.createElement("td");
+      tdRec.innerHTML = rec.length
+        ? '<div class="chip-wrap">'+rec.map(actionChip).join("")+'</div>'
+        : '<span style="color:#57606a;font-size:11px">—</span>';
+      tr.appendChild(tdRec);
+
+      tbody.appendChild(tr);
+    });
+  }
+}
+
+function filterRefTable() {
+  const q = document.getElementById("refSearch").value.toLowerCase().trim();
+  const rows = document.querySelectorAll("#refBody tr");
+  const svcVisible = {};
+
+  // First pass: mark data rows
+  rows.forEach(tr => {
+    if (tr.classList.contains("ref-svc-row")) return;
+    const match = !q || tr.dataset.search.includes(q);
+    tr.style.display = match ? "" : "none";
+    if (match) {
+      // find which svc this belongs to by looking at preceding svc row
+      let prev = tr.previousElementSibling;
+      while (prev) {
+        if (prev.classList.contains("ref-svc-row")) { svcVisible[prev.dataset.svc] = true; break; }
+        prev = prev.previousElementSibling;
+      }
+    }
+  });
+
+  // Second pass: show/hide svc header rows
+  rows.forEach(tr => {
+    if (!tr.classList.contains("ref-svc-row")) return;
+    tr.style.display = (!q || svcVisible[tr.dataset.svc]) ? "" : "none";
+  });
+}
+
+// ==========================================================
+// BOOT — pre-select vpc-instance with a starter filter
+// ==========================================================
+buildGrid();
+buildRefTable();
+renderSaved();
+pickResource("vpc-instance");
+document.getElementById("policyName").value="ibm-vpc-untagged-instances";
+S.filters=[{type:"tag",params:{key:"environment",op:"absent",value:""},negate:false}];
+renderFilters();
+renderYaml();
+</script>
+</body>
+</html>

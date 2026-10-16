@@ -1,0 +1,3 @@
+policies:
+  - name: test-list-all-kms-keys
+    resource: ibm.kms-key

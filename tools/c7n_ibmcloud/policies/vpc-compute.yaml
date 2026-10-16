@@ -1,0 +1,308 @@
+policies:
+
+  # ---------------------------------------------------------------------------
+  # ibm.vpc-instance
+  # ---------------------------------------------------------------------------
+
+  - name: vpc-instance-zombie-stopped
+    description: |
+      SHOULD — Instances stopped for more than 30 days. Mark for deletion.
+    resource: ibm.vpc-instance
+    filters:
+      - type: value
+        key: status
+        op: eq
+        value: stopped
+      - type: age
+        op: gt
+        days: 1
+    actions:
+      - type: mark-for-op
+        op: delete
+        days: 7
+
+  - name: vpc-instance-missing-owner-tag
+    description: |
+      MUST — Instances missing a mandatory owner tag.
+    resource: ibm.vpc-instance
+    filters:
+      - type: tag
+        key: owner
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "missing-owner-tag"
+
+  - name: vpc-instance-missing-environment-tag
+    description: |
+      MUST — Instances missing a mandatory environment tag.
+    resource: ibm.vpc-instance
+    filters:
+      - type: tag
+        key: environment
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "missing-environment-tag"
+
+  - name: vpc-instance-non-approved-zone
+    description: |
+      SHOULD — Instances deployed in a zone outside the approved set.
+      Update the value to match your approved zone (e.g. us-south-1).
+    resource: ibm.vpc-instance
+    filters:
+      - type: value
+        key: zone.name
+        op: ne
+        value: "us-south-1"
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "non-approved-zone"
+
+  - name: vpc-instance-oversized
+    description: |
+      CAN — Instances with more than 16 vCPUs (potential over-provisioning).
+    resource: ibm.vpc-instance
+    filters:
+      - type: value
+        key: vcpu.count
+        op: gt
+        value: 16
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "oversized-instance"
+
+  - name: vpc-instance-marked-for-op
+    description: |
+      SHOULD — Execute stop/delete on instances that have passed their mark-for-op deadline.
+    resource: ibm.vpc-instance
+    filters:
+      - type: marked-for-op
+        op: delete
+    actions:
+      - type: delete
+
+  - name: vpc-instance-wrong-resource-group
+    description: |
+      CAN — Instances not in the expected resource group.
+      Update resource_group_name to your governance group name.
+    resource: ibm.vpc-instance
+    filters:
+      - type: resource-group
+        op: ne
+        value: "approved-resource-group"
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "wrong-resource-group"
+
+  # ---------------------------------------------------------------------------
+  # ibm.vpc-bare-metal
+  # ---------------------------------------------------------------------------
+
+  - name: vpc-bare-metal-not-running
+    description: |
+      MUST — Bare metal servers not in running state.
+    resource: ibm.vpc-bare-metal
+    filters:
+      - type: value
+        key: status
+        op: ne
+        value: running
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "not-running"
+
+  - name: vpc-bare-metal-unhealthy
+    description: |
+      MUST — Bare metal servers with health_state not ok.
+    resource: ibm.vpc-bare-metal
+    filters:
+      - type: value
+        key: health_state
+        op: ne
+        value: ok
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "unhealthy"
+
+  - name: vpc-bare-metal-no-secure-boot
+    description: |
+      SHOULD — Bare metal servers with secure boot not enabled.
+    resource: ibm.vpc-bare-metal
+    filters:
+      - type: value
+        key: enable_secure_boot
+        op: eq
+        value: false
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "no-secure-boot"
+
+  - name: vpc-bare-metal-stale
+    description: |
+      CAN — Bare metal servers older than 730 days. Candidate for re-provisioning.
+    resource: ibm.vpc-bare-metal
+    filters:
+      - type: age
+        op: gt
+        days: 1
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "stale-server"
+
+  - name: vpc-bare-metal-missing-owner-tag
+    description: |
+      MUST — Bare metal servers missing a mandatory owner tag.
+    resource: ibm.vpc-bare-metal
+    filters:
+      - type: tag
+        key: owner
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "missing-owner-tag"
+
+  # ---------------------------------------------------------------------------
+  # ibm.vpc-dedicated-host
+  # ---------------------------------------------------------------------------
+
+  - name: vpc-dedicated-host-not-available
+    description: |
+      MUST — Dedicated hosts not in available state.
+    resource: ibm.vpc-dedicated-host
+    filters:
+      - type: value
+        key: state
+        op: ne
+        value: available
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "not-available"
+
+  - name: vpc-dedicated-host-not-provisionable
+    description: |
+      SHOULD — Dedicated hosts that are not provisionable (at capacity or faulted).
+    resource: ibm.vpc-dedicated-host
+    filters:
+      - type: value
+        key: provisionable
+        op: eq
+        value: false
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "not-provisionable"
+
+  - name: vpc-dedicated-host-underutilised
+    description: |
+      CAN — Dedicated hosts with more than 500 GiB available memory (underutilised).
+      Adjust the threshold to match your environment.
+    resource: ibm.vpc-dedicated-host
+    filters:
+      - type: value
+        key: available_memory
+        op: gt
+        value: 500
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "underutilised"
+
+  - name: vpc-dedicated-host-missing-owner-tag
+    description: |
+      MUST — Dedicated hosts missing a mandatory owner tag.
+    resource: ibm.vpc-dedicated-host
+    filters:
+      - type: tag
+        key: owner
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "missing-owner-tag"
+
+  # ---------------------------------------------------------------------------
+  # ibm.vpc-instance-group
+  # ---------------------------------------------------------------------------
+
+  - name: vpc-instance-group-empty
+    description: |
+      SHOULD — Instance groups with zero members (unused).
+    resource: ibm.vpc-instance-group
+    filters:
+      - type: value
+        key: membership_count
+        op: eq
+        value: 0
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "empty-instance-group"
+
+  - name: vpc-instance-group-not-stable
+    description: |
+      SHOULD — Instance groups not in a stable lifecycle state.
+    resource: ibm.vpc-instance-group
+    filters:
+      - type: value
+        key: lifecycle_state
+        op: ne
+        value: stable
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "not-stable"
+
+  - name: vpc-instance-group-missing-owner-tag
+    description: |
+      CAN — Instance groups missing a mandatory owner tag.
+    resource: ibm.vpc-instance-group
+    filters:
+      - type: tag
+        key: owner
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "missing-owner-tag"
+
+  # ---------------------------------------------------------------------------
+  # ibm.vpc-instance-template
+  # ---------------------------------------------------------------------------
+
+  - name: vpc-instance-template-stale
+    description: |
+      SHOULD — Instance templates older than 365 days (stale configuration).
+    resource: ibm.vpc-instance-template
+    filters:
+      - type: age
+        op: gt
+        days: 1
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "stale-template"
+
+  - name: vpc-instance-template-missing-owner-tag
+    description: |
+      CAN — Instance templates missing a mandatory owner tag.
+    resource: ibm.vpc-instance-template
+    filters:
+      - type: tag
+        key: owner
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "missing-owner-tag"

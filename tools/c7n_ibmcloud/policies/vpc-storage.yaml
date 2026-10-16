@@ -1,0 +1,222 @@
+policies:
+
+  # ---------------------------------------------------------------------------
+  # ibm.vpc-volume
+  # ---------------------------------------------------------------------------
+
+  - name: vpc-volume-unattached
+    description: |
+      SHOULD — Volumes in unattached state for more than 30 days (wasted cost).
+    resource: ibm.vpc-volume
+    filters:
+      - type: value
+        key: attachment_state
+        op: eq
+        value: unattached
+      - type: age
+        op: gt
+        days: 1
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "unattached-volume"
+
+  - name: vpc-volume-no-customer-managed-key
+    description: |
+      MUST — Volumes using provider-managed encryption instead of a customer-managed key.
+    resource: ibm.vpc-volume
+    filters:
+      - type: value
+        key: encryption
+        op: eq
+        value: provider_managed
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "no-customer-managed-key"
+
+  - name: vpc-volume-oversized
+    description: |
+      CAN — Volumes with capacity above 2000 GiB. Review for over-provisioning.
+    resource: ibm.vpc-volume
+    filters:
+      - type: value
+        key: capacity
+        op: gt
+        value: 2000
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "oversized-volume"
+
+  # ---------------------------------------------------------------------------
+  # ibm.vpc-snapshot
+  # ---------------------------------------------------------------------------
+
+  - name: vpc-snapshot-orphaned
+    description: |
+      SHOULD — Snapshots whose source volume has been deleted (orphaned).
+    resource: ibm.vpc-snapshot
+    filters:
+      - type: orphaned
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "orphaned-snapshot"
+
+  - name: vpc-snapshot-stale
+    description: |
+      CAN — Snapshots older than 365 days. Review for cost reduction.
+    resource: ibm.vpc-snapshot
+    filters:
+      - type: age
+        op: gt
+        days: 1
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "stale-snapshot"
+
+  - name: vpc-snapshot-no-customer-managed-key
+    description: |
+      SHOULD — Snapshots using provider-managed encryption.
+    resource: ibm.vpc-snapshot
+    filters:
+      - type: value
+        key: encryption
+        op: eq
+        value: provider_managed
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "no-customer-managed-key"
+
+  - name: vpc-snapshot-not-stable
+    description: |
+      SHOULD — Snapshots not in a stable lifecycle state.
+    resource: ibm.vpc-snapshot
+    filters:
+      - type: value
+        key: lifecycle_state
+        op: ne
+        value: stable
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "not-stable"
+
+  # ---------------------------------------------------------------------------
+  # ibm.vpc-backup-policy
+  # ---------------------------------------------------------------------------
+
+  - name: vpc-backup-policy-unused
+    description: |
+      SHOULD — Backup policies with no plans configured (protect nothing).
+    resource: ibm.vpc-backup-policy
+    filters:
+      - type: unused
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "unused-backup-policy"
+
+  - name: vpc-backup-policy-no-matching-tags
+    description: |
+      SHOULD — Backup policies not matching any resource tags.
+    resource: ibm.vpc-backup-policy
+    filters:
+      - type: value
+        key: match_user_tags
+        op: eq
+        value: []
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "no-matching-tags"
+
+  - name: vpc-backup-policy-not-stable
+    description: |
+      MUST — Backup policies not in a stable lifecycle state.
+    resource: ibm.vpc-backup-policy
+    filters:
+      - type: value
+        key: lifecycle_state
+        op: ne
+        value: stable
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "not-stable"
+
+  # ---------------------------------------------------------------------------
+  # ibm.vpc-file-share
+  # ---------------------------------------------------------------------------
+
+  - name: vpc-file-share-no-mount-targets
+    description: |
+      SHOULD — File shares with no mount targets (unused, wasted cost).
+    resource: ibm.vpc-file-share
+    filters:
+      - type: value
+        key: mount_targets
+        op: eq
+        value: []
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "no-mount-targets"
+
+  - name: vpc-file-share-no-customer-managed-key
+    description: |
+      SHOULD — File shares using provider-managed encryption.
+    resource: ibm.vpc-file-share
+    filters:
+      - type: value
+        key: encryption
+        op: eq
+        value: provider_managed
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "no-customer-managed-key"
+
+  - name: vpc-file-share-not-stable
+    description: |
+      MUST — File shares not in a stable lifecycle state.
+    resource: ibm.vpc-file-share
+    filters:
+      - type: value
+        key: lifecycle_state
+        op: ne
+        value: stable
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "not-stable"
+
+  - name: vpc-file-share-oversized
+    description: |
+      CAN — File shares with size above 10000 GiB.
+    resource: ibm.vpc-file-share
+    filters:
+      - type: value
+        key: size
+        op: gt
+        value: 100
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "oversized-file-share"
+
+  - name: vpc-file-share-missing-owner-tag
+    description: |
+      MUST — File shares missing a mandatory owner tag.
+    resource: ibm.vpc-file-share
+    filters:
+      - type: tag
+        key: owner
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "missing-owner-tag"

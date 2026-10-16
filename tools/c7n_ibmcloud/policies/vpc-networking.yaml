@@ -1,0 +1,425 @@
+policies:
+
+  # ---------------------------------------------------------------------------
+  # ibm.vpc-network
+  # ---------------------------------------------------------------------------
+
+  - name: vpc-network-empty
+    description: |
+      SHOULD — VPCs with no subnets are unused and should be reviewed.
+    resource: ibm.vpc-network
+    filters:
+      - type: value
+        key: subnets
+        op: eq
+        value: []
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "empty-vpc"
+
+  - name: vpc-network-missing-owner-tag
+    description: |
+      MUST — VPCs missing a mandatory owner tag.
+    resource: ibm.vpc-network
+    filters:
+      - type: tag
+        key: owner
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "missing-owner-tag"
+
+  - name: vpc-network-wrong-resource-group
+    description: |
+      CAN — VPCs not in the expected resource group.
+      Update value to your approved resource group name.
+    resource: ibm.vpc-network
+    filters:
+      - type: resource-group
+        op: ne
+        value: "approved-resource-group"
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "wrong-resource-group"
+
+  # ---------------------------------------------------------------------------
+  # ibm.vpc-subnet
+  # ---------------------------------------------------------------------------
+
+  - name: vpc-subnet-not-available
+    description: |
+      MUST — Subnets not in available state.
+    resource: ibm.vpc-subnet
+    filters:
+      - type: value
+        key: status
+        op: ne
+        value: available
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "not-available"
+
+  - name: vpc-subnet-exhausted
+    description: |
+      SHOULD — Subnets with zero available IPv4 addresses.
+    resource: ibm.vpc-subnet
+    filters:
+      - type: value
+        key: available_ipv4_address_count
+        op: eq
+        value: 0
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "ip-exhausted"
+
+  - name: vpc-subnet-missing-owner-tag
+    description: |
+      MUST — Subnets missing a mandatory owner tag.
+    resource: ibm.vpc-subnet
+    filters:
+      - type: tag
+        key: owner
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "missing-owner-tag"
+
+  # ---------------------------------------------------------------------------
+  # ibm.vpc-security-group
+  # ---------------------------------------------------------------------------
+
+  - name: vpc-security-group-open-ssh
+    description: |
+      MUST — Security groups with an inbound rule allowing SSH (port 22) from 0.0.0.0/0.
+    resource: ibm.vpc-security-group
+    filters:
+      - type: value
+        key: "rules[?port_min<=`22` && port_max>=`22` && direction=='inbound' && remote.cidr_block=='0.0.0.0/0'] | [0]"
+        op: ne
+        value: null
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "open-ssh"
+
+  - name: vpc-security-group-open-rdp
+    description: |
+      MUST — Security groups with an inbound rule allowing RDP (port 3389) from 0.0.0.0/0.
+    resource: ibm.vpc-security-group
+    filters:
+      - type: value
+        key: "rules[?port_min<=`3389` && port_max>=`3389` && direction=='inbound' && remote.cidr_block=='0.0.0.0/0'] | [0]"
+        op: ne
+        value: null
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "open-rdp"
+
+  - name: vpc-security-group-wide-open-inbound
+    description: |
+      MUST — Security groups with any inbound rule allowing all ports from 0.0.0.0/0.
+    resource: ibm.vpc-security-group
+    filters:
+      - type: value
+        key: "rules[?direction=='inbound' && remote.cidr_block=='0.0.0.0/0' && port_min==`1` && port_max==`65535`] | [0]"
+        op: ne
+        value: null
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "wide-open-inbound"
+
+  - name: vpc-security-group-orphan
+    description: |
+      SHOULD — Security groups with no attached resources (orphaned).
+    resource: ibm.vpc-security-group
+    filters:
+      - type: value
+        key: targets
+        op: eq
+        value: []
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "orphaned-security-group"
+
+  - name: vpc-security-group-missing-owner-tag
+    description: |
+      MUST — Security groups missing a mandatory owner tag.
+    resource: ibm.vpc-security-group
+    filters:
+      - type: tag
+        key: owner
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "missing-owner-tag"
+
+  # ---------------------------------------------------------------------------
+  # ibm.vpc-network-acl
+  # ---------------------------------------------------------------------------
+
+  - name: vpc-network-acl-open-ssh
+    description: |
+      MUST — Network ACLs with an inbound ALLOW rule for SSH (port 22) from 0.0.0.0/0.
+    resource: ibm.vpc-network-acl
+    filters:
+      - type: value
+        key: "rules[?destination_port_min<=`22` && destination_port_max>=`22` && direction=='inbound' && action=='allow' && source=='0.0.0.0/0'] | [0]"
+        op: ne
+        value: null
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "acl-open-ssh"
+
+  - name: vpc-network-acl-open-rdp
+    description: |
+      MUST — Network ACLs with an inbound ALLOW rule for RDP (port 3389) from 0.0.0.0/0.
+    resource: ibm.vpc-network-acl
+    filters:
+      - type: value
+        key: "rules[?destination_port_min<=`3389` && destination_port_max>=`3389` && direction=='inbound' && action=='allow' && source=='0.0.0.0/0'] | [0]"
+        op: ne
+        value: null
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "acl-open-rdp"
+
+  - name: vpc-network-acl-no-deny-all
+    description: |
+      SHOULD — Network ACLs without an explicit DENY-all rule at the end of the inbound chain.
+      Checks that the last inbound rule is not action=deny with protocol=all.
+    resource: ibm.vpc-network-acl
+    filters:
+      - type: value
+        key: "rules[?direction=='inbound'] | [-1].action"
+        op: ne
+        value: deny
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "no-deny-all-rule"
+
+  # ---------------------------------------------------------------------------
+  # ibm.vpc-public-gateway
+  # ---------------------------------------------------------------------------
+
+  - name: vpc-public-gateway-missing-owner-tag
+    description: |
+      MUST — Public gateways missing a mandatory owner tag.
+    resource: ibm.vpc-public-gateway
+    filters:
+      - type: tag
+        key: owner
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "missing-owner-tag"
+
+  # ---------------------------------------------------------------------------
+  # ibm.vpc-transit-gateway
+  # ---------------------------------------------------------------------------
+
+  - name: vpc-transit-gateway-not-available
+    description: |
+      MUST — Transit gateways not in available state.
+    resource: ibm.vpc-transit-gateway
+    filters:
+      - type: value
+        key: status
+        op: ne
+        value: available
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "not-available"
+
+  - name: vpc-transit-gateway-no-connections
+    description: |
+      SHOULD — Transit gateways with no active connections (unused).
+    resource: ibm.vpc-transit-gateway
+    filters:
+      - type: value
+        key: connections
+        op: eq
+        value: []
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "no-connections"
+
+  - name: vpc-transit-gateway-missing-owner-tag
+    description: |
+      SHOULD — Transit gateways missing a mandatory owner tag.
+    resource: ibm.vpc-transit-gateway
+    filters:
+      - type: tag
+        key: owner
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "missing-owner-tag"
+
+  - name: vpc-transit-gateway-stale
+    description: |
+      SHOULD — Transit gateways older than 30 days with fewer than 2 active connections.
+      A transit gateway with 0 or 1 connections is likely unused or underutilised.
+    resource: ibm.vpc-transit-gateway
+    filters:
+      - type: value
+        key: "length(connections)"
+        op: lt
+        value: 2
+      - type: age
+        op: gt
+        days: 30
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "stale-transit-gateway"
+
+  # ---------------------------------------------------------------------------
+  # ibm.vpc-vpn-gateway
+  # ---------------------------------------------------------------------------
+
+  - name: vpc-vpn-gateway-not-available
+    description: |
+      MUST — VPN gateways not in available state.
+    resource: ibm.vpc-vpn-gateway
+    filters:
+      - type: value
+        key: status
+        op: ne
+        value: available
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "not-available"
+
+  - name: vpc-vpn-gateway-missing-owner-tag
+    description: |
+      SHOULD — VPN gateways missing a mandatory owner tag.
+    resource: ibm.vpc-vpn-gateway
+    filters:
+      - type: tag
+        key: owner
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "missing-owner-tag"
+
+  # ---------------------------------------------------------------------------
+  # ibm.vpc-load-balancer
+  # ---------------------------------------------------------------------------
+
+  - name: vpc-load-balancer-no-https
+    description: |
+      MUST — Public load balancers with no HTTPS listener.
+    resource: ibm.vpc-load-balancer
+    filters:
+      - type: value
+        key: "listeners[?protocol=='https'] | [0]"
+        op: eq
+        value: null
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "no-https-listener"
+
+  - name: vpc-load-balancer-not-active
+    description: |
+      MUST — Load balancers not in active provisioning state.
+    resource: ibm.vpc-load-balancer
+    filters:
+      - type: value
+        key: provisioning_status
+        op: ne
+        value: active
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "not-active"
+
+  - name: vpc-load-balancer-missing-owner-tag
+    description: |
+      SHOULD — Load balancers missing a mandatory owner tag.
+    resource: ibm.vpc-load-balancer
+    filters:
+      - type: tag
+        key: owner
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "missing-owner-tag"
+
+  # ---------------------------------------------------------------------------
+  # ibm.vpc-floating-ip
+  # ---------------------------------------------------------------------------
+
+  - name: vpc-floating-ip-unattached
+    description: |
+      MUST — Floating IPs not attached to any resource (wasted cost).
+    resource: ibm.vpc-floating-ip
+    filters:
+      - type: value
+        key: target
+        value: absent
+    actions:
+      - type: release
+
+  - name: vpc-floating-ip-missing-owner-tag
+    description: |
+      SHOULD — Floating IPs missing a mandatory owner tag.
+    resource: ibm.vpc-floating-ip
+    filters:
+      - type: tag
+        key: owner
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "missing-owner-tag"
+
+  # ---------------------------------------------------------------------------
+  # ibm.vpc-ssh-key
+  # ---------------------------------------------------------------------------
+
+  - name: vpc-ssh-key-rotation-overdue
+    description: |
+      SHOULD — SSH keys older than 365 days. Rotation overdue.
+    resource: ibm.vpc-ssh-key
+    filters:
+      - type: age
+        op: gt
+        days: 365
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "rotation-overdue"
+
+  - name: vpc-ssh-key-missing-owner-tag
+    description: |
+      SHOULD — SSH keys missing a mandatory owner tag.
+    resource: ibm.vpc-ssh-key
+    filters:
+      - type: tag
+        key: owner
+        op: absent
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "missing-owner-tag"

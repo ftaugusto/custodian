@@ -1,0 +1,389 @@
+
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>c7n_ibmcloud — IBM Cloud Provider for Cloud Custodian</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    color: #1f2328;
+    background: #ffffff;
+    padding: 32px 16px 48px;
+  }
+  .page { max-width: 760px; margin: 0 auto; }
+
+  h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+  .subtitle { color: #57606a; font-size: 14px; margin-bottom: 28px; }
+  h2 { font-size: 15px; font-weight: 700; margin: 32px 0 12px; padding-bottom: 6px; border-bottom: 1px solid #e5e7eb; }
+  h3 { font-size: 13px; font-weight: 700; color: #57606a; margin: 20px 0 8px; text-transform: uppercase; letter-spacing: 0.04em; }
+
+  hr { border: none; border-top: 1px solid #e5e7eb; margin: 28px 0; }
+
+  /* Glance cards */
+  .glance { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 8px; }
+  .card {
+    background: #f7f8fa;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 12px 18px;
+    min-width: 110px;
+    flex: 1;
+    text-align: center;
+  }
+  .card-num { font-size: 26px; font-weight: 700; color: #3b82d4; line-height: 1.2; }
+  .card-label { font-size: 12px; color: #57606a; }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 8px; }
+  th { background: #f7f8fa; border: 1px solid #e5e7eb; padding: 7px 10px; text-align: left; font-weight: 600; }
+  td { border: 1px solid #e5e7eb; padding: 7px 10px; vertical-align: top; }
+  tr:nth-child(even) td { background: #fafafa; }
+  code { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; font-size: 12px; background: #f0f1f3; padding: 1px 5px; border-radius: 3px; white-space: nowrap; }
+
+  /* Policy file bar chart */
+  .bar-section { margin-bottom: 8px; }
+  .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 5px; font-size: 12px; }
+  .bar-label { width: 160px; flex-shrink: 0; color: #57606a; font-family: "SFMono-Regular", Consolas, monospace; font-size: 11px; }
+  .bar-track { flex: 1; background: #f0f1f3; border-radius: 3px; height: 16px; }
+  .bar-fill { height: 100%; border-radius: 3px; background: #3b82d4; display: flex; align-items: center; padding-left: 6px; color: #fff; font-size: 11px; font-weight: 600; min-width: 24px; }
+  .bar-fill.accent2 { background: #7c5cd8; }
+
+  /* Code block */
+  pre {
+    background: #f7f8fa;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 14px 16px;
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: 12px;
+    line-height: 1.7;
+    overflow-x: auto;
+    white-space: pre;
+    margin-bottom: 8px;
+  }
+
+  /* Risk badges */
+  .safe   { display:inline-block; background:#dcfce7; color:#166534; font-size:11px; font-weight:600; padding:1px 7px; border-radius:10px; }
+  .warn   { display:inline-block; background:#fef9c3; color:#854d0e; font-size:11px; font-weight:600; padding:1px 7px; border-radius:10px; }
+  .danger { display:inline-block; background:#fee2e2; color:#991b1b; font-size:11px; font-weight:600; padding:1px 7px; border-radius:10px; }
+
+  /* Directory tree */
+  .tree { font-family: "SFMono-Regular", Consolas, monospace; font-size: 12px; line-height: 1.8; background: #f7f8fa; border: 1px solid #e5e7eb; border-radius: 6px; padding: 14px 16px; overflow-x: auto; white-space: pre; }
+
+  footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid #e5e7eb; text-align: center; font-size: 12px; color: #57606a; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <h1>c7n_ibmcloud</h1>
+  <p class="subtitle">IBM Cloud Provider for Cloud Custodian — declarative YAML policy enforcement across 7 IBM Cloud services</p>
+
+  
+  <h2>At a glance</h2>
+  <div class="glance">
+    <div class="card"><div class="card-num">7</div><div class="card-label">Services</div></div>
+    <div class="card"><div class="card-num">43</div><div class="card-label">Resource types</div></div>
+    <div class="card"><div class="card-num">193</div><div class="card-label">Policies</div></div>
+    <div class="card"><div class="card-num">20</div><div class="card-label">Filter types</div></div>
+    <div class="card"><div class="card-num">19</div><div class="card-label">Action types</div></div>
+    <div class="card"><div class="card-num">439</div><div class="card-label">Unit tests</div></div>
+  </div>
+
+  <hr />
+
+  
+  <h2>Services and resource types</h2>
+
+  <h3>IAM — 7 resource types</h3>
+  <table>
+    <tr><th>Resource type</th><th>What it governs</th></tr>
+    <tr><td><code>ibm.iam-user</code></td><td>Account users — MFA, state, email domain</td></tr>
+    <tr><td><code>ibm.iam-service-id</code></td><td>Service IDs — age, description, owner tag</td></tr>
+    <tr><td><code>ibm.iam-api-key</code></td><td>API keys — rotation age, lock state, description</td></tr>
+    <tr><td><code>ibm.iam-access-group</code></td><td>Access groups — empty groups, missing description</td></tr>
+    <tr><td><code>ibm.iam-policy</code></td><td>IAM policies — wildcard resources, missing conditions</td></tr>
+    <tr><td><code>ibm.iam-trusted-profile</code></td><td>Trusted profiles — age, description</td></tr>
+    <tr><td><code>ibm.iam-custom-role</code></td><td>Custom IAM roles — missing description</td></tr>
+  </table>
+
+  <h3>VPC — 19 resource types</h3>
+  <table>
+    <tr><th>Resource type</th><th>What it governs</th></tr>
+    <tr><td><code>ibm.vpc-instance</code></td><td>Virtual server instances — state, tags, zone, size</td></tr>
+    <tr><td><code>ibm.vpc-network</code></td><td>VPCs — empty, tags, resource group</td></tr>
+    <tr><td><code>ibm.vpc-subnet</code></td><td>Subnets — state, IP exhaustion, tags</td></tr>
+    <tr><td><code>ibm.vpc-security-group</code></td><td>Security groups — open SSH/RDP/0.0.0.0 rules, orphans</td></tr>
+    <tr><td><code>ibm.vpc-network-acl</code></td><td>Network ACLs — open inbound rules, missing deny-all</td></tr>
+    <tr><td><code>ibm.vpc-floating-ip</code></td><td>Floating IPs — unattached (wasted cost)</td></tr>
+    <tr><td><code>ibm.vpc-vpn-gateway</code></td><td>VPN gateways — state, weak IKE/IPsec, tags</td></tr>
+    <tr><td><code>ibm.vpc-load-balancer</code></td><td>Load balancers — no HTTPS listener, state</td></tr>
+    <tr><td><code>ibm.vpc-public-gateway</code></td><td>Public gateways — unattached, tags</td></tr>
+    <tr><td><code>ibm.vpc-transit-gateway</code></td><td>Transit gateways — state, empty connections, age</td></tr>
+    <tr><td><code>ibm.vpc-bare-metal</code></td><td>Bare metal servers — state, secure boot, age</td></tr>
+    <tr><td><code>ibm.vpc-dedicated-host</code></td><td>Dedicated hosts — state, provisionable, utilisation</td></tr>
+    <tr><td><code>ibm.vpc-instance-group</code></td><td>Instance groups — empty, lifecycle state</td></tr>
+    <tr><td><code>ibm.vpc-instance-template</code></td><td>Instance templates — age, orphaned</td></tr>
+    <tr><td><code>ibm.vpc-volume</code></td><td>Block volumes — unattached, encryption, capacity</td></tr>
+    <tr><td><code>ibm.vpc-snapshot</code></td><td>Block snapshots — orphaned, age, encryption</td></tr>
+    <tr><td><code>ibm.vpc-file-share</code></td><td>File shares — no mount targets, encryption, size</td></tr>
+    <tr><td><code>ibm.vpc-backup-policy</code></td><td>Backup policies — no plans, unmatched tags</td></tr>
+    <tr><td><code>ibm.vpc-ssh-key</code></td><td>SSH keys (VPC) — age, tags</td></tr>
+  </table>
+
+  <h3>Cloud Object Storage — 1 resource type</h3>
+  <table>
+    <tr><th>Resource type</th><th>What it governs</th></tr>
+    <tr><td><code>ibm.cos-bucket</code></td><td>COS buckets — public access, CMK encryption, versioning, lifecycle</td></tr>
+  </table>
+
+  <h3>Key Protect / KMS — 2 resource types</h3>
+  <table>
+    <tr><th>Resource type</th><th>What it governs</th></tr>
+    <tr><td><code>ibm.kms-key</code></td><td>Keys — rotation policy, state, age</td></tr>
+    <tr><td><code>ibm.kms-key-ring</code></td><td>Key rings — empty rings</td></tr>
+  </table>
+
+  <h3>Kubernetes (IKS / ROKS) — 3 resource types</h3>
+  <table>
+    <tr><th>Resource type</th><th>What it governs</th></tr>
+    <tr><td><code>ibm.iks-cluster</code></td><td>IKS clusters — EOL version, KMS, public endpoint, resource group</td></tr>
+    <tr><td><code>ibm.roks-cluster</code></td><td>ROKS clusters — EOL version, KMS, public endpoint, resource group</td></tr>
+    <tr><td><code>ibm.iks-worker-pool</code></td><td>Worker pools — empty pools, underpopulated pools</td></tr>
+  </table>
+
+  <h3>Power Systems Virtual Server (PowerVS) — 5 resource types</h3>
+  <table>
+    <tr><th>Resource type</th><th>What it governs</th></tr>
+    <tr><td><code>ibm.powervs-instance</code></td><td>PVM instances — state, public network interface, CPU/memory sizing</td></tr>
+    <tr><td><code>ibm.powervs-volume</code></td><td>PowerVS volumes — unattached, shareable, tier-1 idle</td></tr>
+    <tr><td><code>ibm.powervs-network</code></td><td>PowerVS networks — public type (pub-vlan)</td></tr>
+    <tr><td><code>ibm.powervs-image</code></td><td>PowerVS OS images — age, state</td></tr>
+    <tr><td><code>ibm.powervs-ssh-key</code></td><td>PowerVS SSH keys — age, description</td></tr>
+  </table>
+
+  <h3>Databases as a Service (DBaaS) — 6 resource types</h3>
+  <p style="margin-bottom:8px;color:#57606a;font-size:13px">All 6 engines share the same filter and action set: EOL version, non-running state, public endpoint, non-standard plan, missing tags, under-provisioned memory, wrong resource group.</p>
+  <table>
+    <tr><th>Resource type</th><th>Engine</th></tr>
+    <tr><td><code>ibm.dbaas-postgresql</code></td><td>PostgreSQL</td></tr>
+    <tr><td><code>ibm.dbaas-mysql</code></td><td>MySQL</td></tr>
+    <tr><td><code>ibm.dbaas-mongodb</code></td><td>MongoDB</td></tr>
+    <tr><td><code>ibm.dbaas-redis</code></td><td>Redis</td></tr>
+    <tr><td><code>ibm.dbaas-elasticsearch</code></td><td>Elasticsearch</td></tr>
+    <tr><td><code>ibm.dbaas-rabbitmq</code></td><td>RabbitMQ</td></tr>
+  </table>
+
+  <hr />
+
+  
+  <h2>Policies</h2>
+  <p style="margin-bottom:16px;color:#57606a;font-size:13px">193 ready-to-use policies organised into 10 YAML files under <code>policies/</code>.</p>
+
+  <div class="bar-section">
+    <div class="bar-row"><span class="bar-label">cross-cutting.yaml</span><div class="bar-track"><div class="bar-fill" style="width:100%">53</div></div></div>
+    <div class="bar-row"><span class="bar-label">vpc-networking.yaml</span><div class="bar-track"><div class="bar-fill" style="width:52%">28</div></div></div>
+    <div class="bar-row"><span class="bar-label">vpc-compute.yaml</span><div class="bar-track"><div class="bar-fill" style="width:39%">21</div></div></div>
+    <div class="bar-row"><span class="bar-label">powervs.yaml</span><div class="bar-track"><div class="bar-fill accent2" style="width:34%">18</div></div></div>
+    <div class="bar-row"><span class="bar-label">vpc-storage.yaml</span><div class="bar-track"><div class="bar-fill" style="width:28%">15</div></div></div>
+    <div class="bar-row"><span class="bar-label">kubernetes.yaml</span><div class="bar-track"><div class="bar-fill accent2" style="width:28%">15</div></div></div>
+    <div class="bar-row"><span class="bar-label">iam.yaml</span><div class="bar-track"><div class="bar-fill" style="width:34%">18</div></div></div>
+    <div class="bar-row"><span class="bar-label">dbaas.yaml</span><div class="bar-track"><div class="bar-fill accent2" style="width:22%">12</div></div></div>
+    <div class="bar-row"><span class="bar-label">kms.yaml</span><div class="bar-track"><div class="bar-fill" style="width:13%">7</div></div></div>
+    <div class="bar-row"><span class="bar-label">cos.yaml</span><div class="bar-track"><div class="bar-fill" style="width:11%">6</div></div></div>
+  </div>
+
+  <h3>Example policy — PowerVS public network interface (tag → stop → delete)</h3>
+  <pre>policies:
+  - name: powervs-instance-public-network-tag
+    description: |
+      MUST — PowerVS instances with a public network interface (pub-vlan or
+      external IP). Tags the instance workspace for operator review.
+    resource: ibm.powervs-instance
+    filters:
+      - type: public-network-interface
+    actions:
+      - type: tag
+        tags:
+          custodian-review: "public-network-interface"
+
+  - name: powervs-instance-public-network-stop
+    description: |
+      MUST — Stop active PowerVS instances with a public network interface.
+    resource: ibm.powervs-instance
+    filters:
+      - type: public-network-interface
+      - type: value
+        key: status
+        op: eq
+        value: ACTIVE
+    actions:
+      - stop
+
+  - name: powervs-instance-public-network-delete
+    description: |
+      MUST — Delete stopped + reviewed PowerVS instances with a public network.
+    resource: ibm.powervs-instance
+    filters:
+      - type: public-network-interface
+      - type: value
+        key: status
+        op: eq
+        value: SHUTOFF
+      - type: tag
+        key: custodian-review
+        op: eq
+        value: "public-network-interface"
+    actions:
+      - delete</pre>
+
+  <hr />
+
+  
+  <h2>Filters</h2>
+  <table>
+    <tr><th>Filter</th><th>Description</th></tr>
+    <tr><td><code>value</code></td><td>JMESPath field comparison (eq, ne, gt, lt, contains, absent, present, …)</td></tr>
+    <tr><td><code>tag</code></td><td>Match on IBM Cloud user tag (key:value pairs or bare keys)</td></tr>
+    <tr><td><code>age</code></td><td>Resource creation date comparison in days</td></tr>
+    <tr><td><code>resource-group</code></td><td>Filter by resource group name or ID — handles both nested dict (VPC/COS SDK) and flat string (Container API) shapes</td></tr>
+    <tr><td><code>marked-for-op</code></td><td>Match resources previously scheduled for an operation</td></tr>
+    <tr><td><code>version</code></td><td>Semantic version comparison (clusters, databases)</td></tr>
+    <tr><td><code>plan</code></td><td>DBaaS service plan (standard, enterprise, …)</td></tr>
+    <tr><td><code>state</code></td><td>KMS key state (active, deactivated, destroyed, pre-activation, …)</td></tr>
+    <tr><td><code>mfa-disabled</code></td><td>IAM users without MFA enrolled</td></tr>
+    <tr><td><code>kms-enabled</code></td><td>IKS/ROKS clusters without Key Protect / KMS configured</td></tr>
+    <tr><td><code>public-network-interface</code></td><td>PowerVS instances with a routable external IP or pub-vlan network</td></tr>
+    <tr><td><code>public-access</code></td><td>COS buckets with public ACL access enabled</td></tr>
+    <tr><td><code>versioning-enabled</code></td><td>COS buckets with/without versioning</td></tr>
+    <tr><td><code>customer-managed-key</code></td><td>COS buckets with/without a Key Protect CMK</td></tr>
+    <tr><td><code>rotation-policy</code></td><td>KMS keys with/without an automatic rotation policy</td></tr>
+    <tr><td><code>rule-match</code></td><td>VPC security group rules matching port/direction/CIDR</td></tr>
+    <tr><td><code>acl-rule-match</code></td><td>VPC Network ACL rules matching port/direction/action/CIDR</td></tr>
+    <tr><td><code>orphaned</code></td><td>VPC snapshots whose source volume has been deleted</td></tr>
+    <tr><td><code>unused</code></td><td>VPC backup policies with no plans configured</td></tr>
+  </table>
+
+  <hr />
+
+  
+  <h2>Actions</h2>
+  <table>
+    <tr><th>Action</th><th>Risk</th><th>Description</th></tr>
+    <tr><td><code>tag</code></td><td><span class="safe">Safe</span></td><td>Attach IBM Cloud user tags via GlobalTaggingV1</td></tr>
+    <tr><td><code>remove-tag</code></td><td><span class="safe">Safe</span></td><td>Detach user tags via GlobalTaggingV1</td></tr>
+    <tr><td><code>mark-for-op</code></td><td><span class="safe">Safe</span></td><td>Attach a dated <code>custodian_status_&lt;op&gt;:&lt;date&gt;</code> tag for future action</td></tr>
+    <tr><td><code>start</code></td><td><span class="safe">Safe</span></td><td>Start a stopped instance (VPC, PowerVS)</td></tr>
+    <tr><td><code>stop</code></td><td><span class="safe">Safe</span></td><td>Stop a running instance (VPC, PowerVS)</td></tr>
+    <tr><td><code>reboot</code></td><td><span class="safe">Safe</span></td><td>Reboot a running VPC instance</td></tr>
+    <tr><td><code>set-versioning</code></td><td><span class="safe">Safe</span></td><td>Enable or disable versioning on a COS bucket</td></tr>
+    <tr><td><code>set-encryption</code></td><td><span class="safe">Safe</span></td><td>Flag-only: log non-compliant COS bucket (no per-bucket SSE API)</td></tr>
+    <tr><td><code>set-lifecycle</code></td><td><span class="safe">Safe</span></td><td>Apply an expiry lifecycle rule to a COS bucket</td></tr>
+    <tr><td><code>scale</code></td><td><span class="safe">Safe</span></td><td>Resize a DBaaS instance (memory, disk, CPU)</td></tr>
+    <tr><td><code>enable</code></td><td><span class="safe">Safe</span></td><td>Re-enable a disabled KMS key</td></tr>
+    <tr><td><code>append-description</code></td><td><span class="safe">Safe</span></td><td>Append a custodian notice to an IAM/PowerVS resource description</td></tr>
+    <tr><td><code>add-to-review-group</code></td><td><span class="safe">Safe</span></td><td>Add an IAM user to a review access group</td></tr>
+    <tr><td><code>lock</code></td><td><span class="warn">Warn</span></td><td>Lock an IAM API key (disables it without deleting)</td></tr>
+    <tr><td><code>unlock</code></td><td><span class="warn">Warn</span></td><td>Unlock a previously locked IAM API key</td></tr>
+    <tr><td><code>disable</code></td><td><span class="warn">Warn</span></td><td>Disable a KMS key</td></tr>
+    <tr><td><code>rotate</code></td><td><span class="warn">Warn</span></td><td>Trigger an immediate KMS key rotation</td></tr>
+    <tr><td><code>release</code></td><td><span class="danger">Danger</span></td><td>Release an unattached VPC floating IP (irreversible)</td></tr>
+    <tr><td><code>delete</code></td><td><span class="danger">Danger</span></td><td>Delete a resource (irreversible)</td></tr>
+  </table>
+
+  <hr />
+
+  
+  <h2>Installation</h2>
+  <pre>pip install c7n
+pip install -e tools/c7n_ibmcloud</pre>
+
+  <p style="margin:10px 0 6px;font-weight:600;font-size:13px">Required environment variables:</p>
+  <pre>export IBMCLOUD_API_KEY="&lt;your-api-key&gt;"
+export IBMCLOUD_REGION="us-south"
+export IBMCLOUD_ACCOUNT_ID="&lt;your-account-id&gt;"</pre>
+
+  <p style="margin:10px 0 6px;font-weight:600;font-size:13px">Run a policy file:</p>
+  <pre>custodian run \
+  --configs tools/c7n_ibmcloud/policies/vpc-networking.yaml \
+  --output-dir /tmp/c7n-out \
+  --cache-period 0</pre>
+
+  <p style="margin:10px 0 6px;font-weight:600;font-size:13px">Run all policies:</p>
+  <pre>custodian run \
+  --configs tools/c7n_ibmcloud/policies/ \
+  --output-dir /tmp/c7n-out \
+  --cache-period 300</pre>
+
+  <hr />
+
+  
+  <h2>Testing</h2>
+  <pre>cd cloud-custodian
+python3 -m pytest tools/c7n_ibmcloud/tests/ -v</pre>
+  <p style="margin-top:8px;color:#57606a;font-size:13px">439 unit tests covering all resource types, filters, and actions. No live IBM Cloud credentials required — all tests use in-process stubs and mocks.</p>
+
+  <hr />
+
+  
+  <h2>Tools</h2>
+  <table>
+    <tr><th>Tool</th><th>Location</th><th>Description</th></tr>
+    <tr><td>Policy Builder</td><td><code>tools/c7n_ibmcloud/policy-builder.html</code></td><td>Interactive browser-based YAML policy generator with resource reference table</td></tr>
+    <tr><td>Governance Reference</td><td><code>tools/c7n_ibmcloud/docs/governance-checks-reference.html</code></td><td>Complete catalogue of all checks — filter keys, severity levels, recommended actions</td></tr>
+    <tr><td>Test Resources Guide</td><td><code>tools/c7n_ibmcloud/docs/test-resources-guide.html</code></td><td>IBM CLI commands to create compliant/non-compliant resources for every policy</td></tr>
+    <tr><td>Deployment Guide</td><td><code>tools/c7n_ibmcloud/docs/deployment-guide.html</code></td><td>End-to-end IBM Cloud deployment guide (HTML)</td></tr>
+  </table>
+
+  <hr />
+
+  
+  <h2>Real-time operation</h2>
+  <p style="color:#57606a;font-size:13px;margin-bottom:8px">For near-real-time enforcement (latency ~1 min from API call to remediation), combine two layers:</p>
+  <ol style="padding-left:20px;font-size:13px;color:#57606a;line-height:1.8">
+    <li><strong style="color:#1f2328">Event-triggered runs</strong> — Route IBM Cloud Activity Tracker audit events through IBM Cloud Event Notifications to a Code Engine job that runs <code>custodian run --cache-period 0</code> scoped to the affected resource type.</li>
+    <li><strong style="color:#1f2328">Scheduled sweep</strong> — A Code Engine scheduled job running every 15 minutes catches any events missed by the trigger pipeline.</li>
+  </ol>
+
+  <hr />
+
+  
+  <h2>Project structure</h2>
+  <div class="tree">tools/c7n_ibmcloud/
+├── c7n_ibmcloud/
+│   ├── resources/
+│   │   ├── iam.py          — IAM users, service IDs, API keys, groups, policies
+│   │   ├── vpc.py          — VPC compute, networking, storage (19 types)
+│   │   ├── cos.py          — Cloud Object Storage buckets
+│   │   ├── kms.py          — Key Protect keys and key rings
+│   │   ├── kubernetes.py   — IKS / ROKS clusters and worker pools
+│   │   ├── powervs.py      — Power Systems Virtual Server (5 types)
+│   │   └── dbaas.py        — IBM Cloud Databases (6 engines)
+│   ├── filters/
+│   │   └── base.py         — Shared filters (tag, age, resource-group, …)
+│   ├── actions/
+│   │   └── base.py         — Shared actions (tag, delete, mark-for-op, …)
+│   └── session.py          — IBM Cloud SDK session and PowerVS client
+├── policies/
+│   ├── cross-cutting.yaml  — Tag and resource-group checks across all services
+│   ├── iam.yaml
+│   ├── vpc-compute.yaml
+│   ├── vpc-networking.yaml
+│   ├── vpc-storage.yaml
+│   ├── cos.yaml
+│   ├── kms.yaml
+│   ├── kubernetes.yaml
+│   ├── powervs.yaml        — incl. 3 public-network-interface policies
+│   └── dbaas.yaml
+├── tests/                  — 439 unit tests (no live credentials required)
+├── policy-builder.html     — Interactive policy builder (open in browser)
+└── README.md</div>
+
+</div>
+<footer>Made with IBM Bob</footer>
+</body>
+</html>

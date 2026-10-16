@@ -1,0 +1,461 @@
+
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>c7n_ibmcloud — IBM Cloud Deployment Guide</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "Segoe UI", system-ui, sans-serif; font-size: 14px; line-height: 1.6; color: #1f2328; background: #fff; }
+  .page { max-width: 760px; margin: 0 auto; padding: 40px 24px 60px; }
+
+  h1 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+  h2 { font-size: 16px; font-weight: 700; margin: 36px 0 10px; border-bottom: 1px solid #e5e7eb; padding-bottom: 6px; color: #1f2328; }
+  h3 { font-size: 14px; font-weight: 600; margin: 22px 0 8px; color: #1f2328; }
+  h4 { font-size: 13px; font-weight: 600; margin: 16px 0 6px; color: #57606a; }
+  p  { margin-bottom: 10px; color: #1f2328; }
+  ul, ol { margin: 8px 0 12px 20px; }
+  li { margin-bottom: 4px; }
+  a  { color: #3b82d4; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  .subtitle { color: #57606a; font-size: 13px; margin-bottom: 28px; }
+
+  .toc { background: #f7f8fa; border: 1px solid #e5e7eb; border-radius: 6px; padding: 16px 20px; margin-bottom: 32px; }
+  .toc h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: #57606a; border: none; padding: 0; margin: 0 0 10px; }
+  .toc ol { margin: 0 0 0 16px; }
+  .toc li { font-size: 13px; margin-bottom: 3px; }
+
+  pre { background: #f7f8fa; border: 1px solid #e5e7eb; border-radius: 5px; padding: 12px 14px; font-size: 12px; line-height: 1.5; overflow-x: auto; margin: 10px 0 14px; white-space: pre; }
+  code { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; font-size: 12px; background: #f7f8fa; border: 1px solid #e5e7eb; border-radius: 3px; padding: 1px 4px; }
+  pre code { background: none; border: none; padding: 0; font-size: 12px; }
+
+  table { width: 100%; border-collapse: collapse; margin: 10px 0 16px; font-size: 13px; }
+  th { background: #f7f8fa; text-align: left; padding: 7px 10px; font-weight: 600; border: 1px solid #e5e7eb; }
+  td { padding: 6px 10px; border: 1px solid #e5e7eb; vertical-align: top; }
+  tr:nth-child(even) td { background: #fafbfc; }
+
+  .arch { background: #f7f8fa; border: 1px solid #e5e7eb; border-radius: 5px; padding: 14px 18px; font-family: "SFMono-Regular", Consolas, monospace; font-size: 12px; line-height: 1.7; margin: 10px 0 16px; white-space: pre; overflow-x: auto; }
+
+  .badge { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 12px; margin-right: 4px; }
+  .badge-safe   { background: #dcfce7; color: #166534; }
+  .badge-warn   { background: #fef9c3; color: #854d0e; }
+  .badge-realtime { background: #dbeafe; color: #1e3a8a; }
+
+  .callout { background: #f0f9ff; border-left: 3px solid #3b82d4; padding: 10px 14px; margin: 12px 0 16px; border-radius: 0 4px 4px 0; font-size: 13px; }
+  .callout-warn { background: #fffbeb; border-left-color: #f59e0b; }
+
+  hr { border: none; border-top: 1px solid #e5e7eb; margin: 32px 0; }
+
+  .section-num { color: #57606a; font-size: 13px; margin-right: 6px; }
+
+  footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid #e5e7eb; text-align: center; font-size: 12px; color: #57606a; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <h1>c7n_ibmcloud — IBM Cloud Deployment Guide</h1>
+  <p class="subtitle">Container Registry · Code Engine · Activity Tracker · Event Notifications · Event Streams · SCC Workload Protection</p>
+
+  <div class="toc">
+    <h2>Contents</h2>
+    <ol>
+      <li><a href="#s1">Prerequisites</a></li>
+      <li><a href="#s2">Container image</a></li>
+      <li><a href="#s3">Secrets and configuration</a></li>
+      <li><a href="#s4">Scheduled sweep — Code Engine job</a></li>
+      <li><a href="#s5">Near-real-time enforcement — event-triggered pipeline</a>
+        <ol style="margin-top:3px">
+          <li><a href="#s51">Architecture overview</a></li>
+          <li><a href="#s52">Activity Tracker routing rule</a></li>
+          <li><a href="#s53">Event Notifications subscription</a></li>
+          <li><a href="#s54">Code Engine webhook application</a></li>
+          <li><a href="#s55">Action → policy file mapping</a></li>
+        </ol>
+      </li>
+      <li><a href="#s6">Event Streams (Kafka) integration</a></li>
+      <li><a href="#s7">SCC Workload Protection webhook</a></li>
+      <li><a href="#s8">IAM service-to-service authorisations</a></li>
+      <li><a href="#s9">Outputs and findings</a></li>
+      <li><a href="#s10">Operational runbook</a></li>
+    </ol>
+  </div>
+
+  
+  <h2 id="s1"><span class="section-num">1.</span>Prerequisites</h2>
+
+  <table>
+    <tr><th>Tool</th><th>Install</th></tr>
+    <tr><td>IBM Cloud CLI</td><td><code>curl -fsSL https://clis.cloud.ibm.com/install/linux | sh</code></td></tr>
+    <tr><td><code>container-registry</code> plugin</td><td><code>ibmcloud plugin install container-registry</code></td></tr>
+    <tr><td><code>code-engine</code> plugin</td><td><code>ibmcloud plugin install code-engine</code></td></tr>
+    <tr><td>Docker / Podman</td><td>system package</td></tr>
+    <tr><td>Python 3.11+</td><td>system package</td></tr>
+  </table>
+
+  <p><strong>IBM Cloud services required</strong> (all must exist in the same account):</p>
+  <ul>
+    <li>IBM Cloud Container Registry — stores the custodian image</li>
+    <li>IBM Code Engine — runs the job and the webhook application</li>
+    <li>IBM Secrets Manager — stores API keys and secrets</li>
+    <li>IBM Activity Tracker (Event Routing) — routes audit events</li>
+    <li>IBM Event Notifications — fan-out to Code Engine webhook</li>
+    <li>IBM Event Streams <em>(optional)</em> — Kafka bus for multi-consumer fan-out</li>
+    <li>IBM Security and Compliance Center Workload Protection <em>(optional)</em></li>
+  </ul>
+
+  
+  <h2 id="s2"><span class="section-num">2.</span>Container image</h2>
+
+  <h3>Dockerfile</h3>
+<pre>FROM python:3.11-slim
+WORKDIR /app
+COPY tools/c7n_ibmcloud /app/c7n_ibmcloud
+RUN pip install --no-cache-dir c7n &amp;&amp; \
+    pip install --no-cache-dir -e /app/c7n_ibmcloud
+COPY tools/c7n_ibmcloud/policies /app/policies
+ENTRYPOINT ["custodian"]
+CMD ["run", "--help"]</pre>
+
+  <h3>Build and push to IBM Container Registry</h3>
+<pre>ibmcloud login --apikey "$IBMCLOUD_API_KEY" -r us-south
+ibmcloud cr login
+ibmcloud cr region-set us-south
+ibmcloud cr namespace-add custodian          # once only
+
+docker build -t us.icr.io/custodian/c7n-ibmcloud:latest .
+docker push us.icr.io/custodian/c7n-ibmcloud:latest</pre>
+
+  
+  <h2 id="s3"><span class="section-num">3.</span>Secrets and configuration</h2>
+
+  <p>Store sensitive values in <strong>IBM Secrets Manager</strong>. Code Engine references them by CRN and injects them as environment variables at runtime.</p>
+
+<pre>ibmcloud sm arbitrary-secret-create \
+  --name custodian-api-key \
+  --secret-data "$IBMCLOUD_API_KEY" \
+  --instance-id "$SM_INSTANCE_ID"
+
+ibmcloud sm arbitrary-secret-create \
+  --name custodian-account-id \
+  --secret-data "$IBMCLOUD_ACCOUNT_ID" \
+  --instance-id "$SM_INSTANCE_ID"</pre>
+
+  <table>
+    <tr><th>Env var</th><th>Source</th><th>Required</th></tr>
+    <tr><td><code>IBMCLOUD_API_KEY</code></td><td>Secrets Manager secret</td><td>Always</td></tr>
+    <tr><td><code>IBMCLOUD_ACCOUNT_ID</code></td><td>Secrets Manager secret</td><td>Always</td></tr>
+    <tr><td><code>IBMCLOUD_REGION</code></td><td>Literal in job spec</td><td>Always</td></tr>
+    <tr><td><code>IBMCLOUD_COS_RESOURCE_INSTANCE_ID</code></td><td>Secrets Manager secret</td><td>COS policies</td></tr>
+    <tr><td><code>IBMCLOUD_POWERVS_WORKSPACE_ID</code></td><td>Secrets Manager secret</td><td>PowerVS policies</td></tr>
+  </table>
+
+  
+  <h2 id="s4"><span class="section-num">4.</span>Scheduled sweep — Code Engine job</h2>
+
+  <p>A scheduled job runs all policies on a fixed cadence. It acts as a safety net that catches anything the event-triggered pipeline may have missed. <span class="badge badge-safe">every 15 min</span></p>
+
+<pre>ibmcloud ce project select --name custodian-prod
+
+ibmcloud ce job create \
+  --name custodian-sweep \
+  --image us.icr.io/custodian/c7n-ibmcloud:latest \
+  --argument run \
+  --argument "--configs=/app/policies/" \
+  --argument "--output-dir=/tmp/c7n-out" \
+  --argument "--cache-period=300" \
+  --env-from-secret custodian-secrets \
+  --env IBMCLOUD_REGION=us-south \
+  --cpu 1 --memory 2G --maxexecutiontime 1800
+
+ibmcloud ce jobrun schedule create \
+  --name custodian-sweep-schedule \
+  --job custodian-sweep \
+  --schedule "*/15 * * * *"</pre>
+
+  <div class="callout">
+    <strong>Tip — scoped sweeps.</strong> For large accounts, create a separate scheduled job per policy file (<code>cos.yaml</code>, <code>vpc-networking.yaml</code>, …) so each run completes faster and failures are isolated.
+  </div>
+
+  
+  <h2 id="s5"><span class="section-num">5.</span>Near-real-time enforcement — event-triggered pipeline</h2>
+
+  <p>End-to-end latency: <span class="badge badge-realtime">~60–90 seconds</span> from the API call that creates or modifies a resource to the policy check completing.</p>
+
+  <h3 id="s51">5.1 Architecture overview</h3>
+  <div class="arch">IBM Cloud API call
+       │
+       ▼
+Activity Tracker (Event Routing)
+  routing rule: action starts with "cloud-object-storage" / "is." / "power-iaas" …
+       │
+       ▼
+Event Notifications
+  topic → subscription → webhook
+       │
+       ▼
+Code Engine application  (custodian-webhook)
+  • parses the AT event payload
+  • maps action → policy file
+  • runs: custodian run --configs /app/policies/&lt;file&gt;.yaml --cache-period 0
+       │
+       ▼
+IBM Cloud APIs  (query + remediate)
+       │
+       ├──► tag / stop / delete resource
+       └──► write finding to SCC WP</div>
+
+  <h3 id="s52">5.2 Activity Tracker routing rule</h3>
+<pre>ibmcloud atracker target create \
+  --name custodian-en-target \
+  --type event-notifications \
+  --event-notifications-crn "$EN_INSTANCE_CRN"
+
+ibmcloud atracker route create \
+  --name custodian-route \
+  --rules '[{
+    "target_ids": ["&lt;target-id&gt;"],
+    "locations": ["*"],
+    "actions": [
+      "cloud-object-storage.", "is.instance.", "is.volume.",
+      "is.security-group.", "is.network-acl.", "is.floating-ip.",
+      "is.subnet.", "is.vpc.", "is.load-balancer.", "is.vpn-gateway.",
+      "power-iaas.", "kms.", "containers-kubernetes.",
+      "databases-for-", "iam-identity.", "iam-groups.", "iam-am."
+    ]
+  }]'</pre>
+
+  <h3 id="s53">5.3 Event Notifications subscription</h3>
+<pre>ibmcloud en topic-create \
+  --instance-id "$EN_INSTANCE_ID" \
+  --name custodian-at-events \
+  --source "$AT_SOURCE_ID"
+
+# Create a webhook destination pointing at the Code Engine application URL
+ibmcloud en subscription-create \
+  --instance-id "$EN_INSTANCE_ID" \
+  --name custodian-webhook-sub \
+  --destination-id "$WEBHOOK_DEST_ID" \
+  --topic-id "$TOPIC_ID"</pre>
+
+  <h3 id="s54">5.4 Code Engine webhook application</h3>
+  <p>The webhook is a small HTTP server that receives Event Notifications payloads, maps the <code>action</code> field to a policy file, and runs custodian in a background thread so the HTTP response is immediate.</p>
+
+<pre>ibmcloud ce application create \
+  --name custodian-webhook \
+  --image us.icr.io/custodian/c7n-ibmcloud:latest \
+  --command python3 \
+  --argument /app/webhook/app.py \
+  --env-from-secret custodian-secrets \
+  --env IBMCLOUD_REGION=us-south \
+  --env POLICY_DIR=/app/policies \
+  --env OUTPUT_DIR=/tmp/c7n-out \
+  --min-scale 1 --max-scale 5 \
+  --cpu 1 --memory 2G --port 8080</pre>
+
+  <p>Key logic in <code>webhook/app.py</code>:</p>
+<pre>ACTION_TO_POLICY = {
+  "cloud-object-storage":  "cos.yaml",
+  "is.instance":           "vpc-compute.yaml",
+  "is.volume":             "vpc-storage.yaml",
+  "is.security-group":     "vpc-networking.yaml",
+  "is.network-acl":        "vpc-networking.yaml",
+  "power-iaas":            "powervs.yaml",
+  "kms":                   "kms.yaml",
+  "containers-kubernetes": "kubernetes.yaml",
+  "databases-for-":        "dbaas.yaml",
+  "iam-identity":          "iam.yaml",
+  "iam-groups":            "iam.yaml",
+}
+
+def do_POST(self):
+    payload = json.loads(body)
+    action = payload.get("data", payload).get("action", "")
+    policy_file = next(
+        (f for p,f in ACTION_TO_POLICY.items() if action.startswith(p)), None)
+    if policy_file:
+        threading.Thread(target=_run_custodian,
+                         args=(policy_file, action), daemon=True).start()
+    self.send_response(200); self.end_headers()</pre>
+
+  <h3 id="s55">5.5 Action → policy file mapping</h3>
+  <table>
+    <tr><th>AT action prefix</th><th>Resource types</th><th>Policy file</th></tr>
+    <tr><td><code>cloud-object-storage.*</code></td><td><code>ibm.cos-bucket</code></td><td><code>cos.yaml</code></td></tr>
+    <tr><td><code>is.instance.*</code></td><td><code>ibm.vpc-instance</code></td><td><code>vpc-compute.yaml</code></td></tr>
+    <tr><td><code>is.bare-metal-server.*</code></td><td><code>ibm.vpc-bare-metal</code></td><td><code>vpc-compute.yaml</code></td></tr>
+    <tr><td><code>is.volume.*</code></td><td><code>ibm.vpc-volume</code></td><td><code>vpc-storage.yaml</code></td></tr>
+    <tr><td><code>is.snapshot.*</code></td><td><code>ibm.vpc-snapshot</code></td><td><code>vpc-storage.yaml</code></td></tr>
+    <tr><td><code>is.security-group.*</code></td><td><code>ibm.vpc-security-group</code></td><td><code>vpc-networking.yaml</code></td></tr>
+    <tr><td><code>is.network-acl.*</code></td><td><code>ibm.vpc-network-acl</code></td><td><code>vpc-networking.yaml</code></td></tr>
+    <tr><td><code>is.floating-ip.*</code></td><td><code>ibm.vpc-floating-ip</code></td><td><code>vpc-networking.yaml</code></td></tr>
+    <tr><td><code>is.load-balancer.*</code></td><td><code>ibm.vpc-load-balancer</code></td><td><code>vpc-networking.yaml</code></td></tr>
+    <tr><td><code>is.transit-gateway.*</code></td><td><code>ibm.vpc-transit-gateway</code></td><td><code>vpc-networking.yaml</code></td></tr>
+    <tr><td><code>power-iaas.*</code></td><td><code>ibm.powervs-instance</code>, <code>ibm.powervs-volume</code></td><td><code>powervs.yaml</code></td></tr>
+    <tr><td><code>kms.*</code></td><td><code>ibm.kms-key</code>, <code>ibm.kms-key-ring</code></td><td><code>kms.yaml</code></td></tr>
+    <tr><td><code>containers-kubernetes.*</code></td><td><code>ibm.iks-cluster</code>, <code>ibm.roks-cluster</code></td><td><code>kubernetes.yaml</code></td></tr>
+    <tr><td><code>databases-for-*</code></td><td><code>ibm.dbaas-*</code></td><td><code>dbaas.yaml</code></td></tr>
+    <tr><td><code>iam-identity.*</code>, <code>iam-groups.*</code></td><td><code>ibm.iam-*</code></td><td><code>iam.yaml</code></td></tr>
+  </table>
+
+  
+  <h2 id="s6"><span class="section-num">6.</span>Event Streams (Kafka) integration</h2>
+
+  <p>Use IBM Event Streams when you need audit-event fan-out to multiple consumers (SIEM, data lake, custodian) from a single Activity Tracker route, or when you need replay and retention beyond what Event Notifications provides.</p>
+
+  <div class="arch">Activity Tracker (Event Routing)
+       │  target: Event Streams
+       ▼
+Event Streams topic  "at-audit-events"
+       │
+       ├──► SIEM / Splunk / QRadar consumer
+       ├──► Data lake / COS archive consumer
+       └──► custodian-kafka-consumer  (Code Engine job)
+               │
+               ▼
+           custodian run --cache-period 0</div>
+
+<pre>ibmcloud atracker target create \
+  --name custodian-kafka-target \
+  --type event-streams \
+  --brokers "$KAFKA_BROKERS" \
+  --topic at-audit-events \
+  --api-key "$KAFKA_API_KEY"</pre>
+
+  <p>The Kafka consumer job (<code>kafka_consumer.py</code>) connects with <code>SASL_SSL / PLAIN</code>, reads from <code>auto_offset_reset=latest</code>, maps each event's <code>action</code> field to a policy file, and calls <code>custodian run</code>. A <code>seen_policies</code> set prevents launching duplicate runs for the same policy file while one is already executing.</p>
+
+  
+  <h2 id="s7"><span class="section-num">7.</span>SCC Workload Protection webhook</h2>
+
+  <p>SCC WP raises a finding → notification channel (webhook) → custodian webhook receiver → scoped <code>custodian run</code>.</p>
+
+  <div class="arch">SCC Workload Protection finding
+       │  Notification channel (webhook type)
+       ▼
+Code Engine application  (custodian-webhook, path /sccwp)
+       │  maps finding.kind → policy file
+       ▼
+custodian run --cache-period 0
+       │
+       ▼
+SCC Findings API  (write-back — optional)</div>
+
+  <h3>Configure the SCC WP notification channel</h3>
+  <ol>
+    <li>Go to <strong>Settings → Notification channels</strong> in SCC WP console.</li>
+    <li>Click <strong>Add channel</strong>, choose <strong>Webhook</strong>.</li>
+    <li>Set URL to the Code Engine application URL with path <code>/sccwp</code>.</li>
+    <li>Choose finding types: <code>STORAGE</code> → <code>cos.yaml</code>, <code>NETWORK</code> → <code>vpc-networking.yaml</code>, <code>IAM</code> → <code>iam.yaml</code>, <code>RUNTIME</code> → <code>vpc-compute.yaml</code>.</li>
+  </ol>
+
+  <table>
+    <tr><th>SCC WP finding kind</th><th>Policy file triggered</th></tr>
+    <tr><td><code>STORAGE</code></td><td><code>cos.yaml</code></td></tr>
+    <tr><td><code>NETWORK</code></td><td><code>vpc-networking.yaml</code></td></tr>
+    <tr><td><code>IAM</code></td><td><code>iam.yaml</code></td></tr>
+    <tr><td><code>RUNTIME</code></td><td><code>vpc-compute.yaml</code></td></tr>
+    <tr><td><code>KMS</code></td><td><code>kms.yaml</code></td></tr>
+    <tr><td><code>CONTAINER</code></td><td><code>kubernetes.yaml</code></td></tr>
+  </table>
+
+  <h3>Write findings back to SCC</h3>
+  <p>After a policy run, parse <code>resources.json</code> from the output directory and POST each matched resource as a finding to the SCC Findings API (<code>https://us-south.secadvisor.cloud.ibm.com/findings/v1/&lt;account&gt;/providers/custodian/notes</code>). This creates a closed loop: SCC WP → custodian → SCC findings.</p>
+
+  
+  <h2 id="s8"><span class="section-num">8.</span>IAM service-to-service authorisations</h2>
+
+  <p>Create a service ID <code>custodian-runner</code> and assign these policies:</p>
+
+  <table>
+    <tr><th>Service</th><th>Roles required</th></tr>
+    <tr><td>All governed services (COS, VPC, KMS, IKS, DBaaS, PowerVS, IAM)</td><td>Viewer + Writer</td></tr>
+    <tr><td><code>global-search-tagging</code></td><td>Viewer (tag reads)</td></tr>
+    <tr><td><code>global-tagging</code></td><td>Writer (tag actions)</td></tr>
+    <tr><td><code>iam-identity</code>, <code>iam-groups</code>, <code>iam-access-management</code></td><td>Viewer</td></tr>
+    <tr><td>Secrets Manager (instance-scoped)</td><td>SecretsReader</td></tr>
+  </table>
+
+<pre>ibmcloud iam service-id-create custodian-runner \
+  --description "Cloud Custodian policy runner"
+
+for SERVICE in cloud-object-storage is kms containers-kubernetes \
+               databases-for-postgresql databases-for-mysql \
+               databases-for-mongodb databases-for-redis \
+               databases-for-elasticsearch databases-for-rabbitmq \
+               power-iaas; do
+  ibmcloud iam service-policy-create custodian-runner \
+    --roles Viewer,Writer --service-name "$SERVICE"
+done
+
+ibmcloud iam service-policy-create custodian-runner \
+  --roles Writer --service-name global-tagging
+ibmcloud iam service-policy-create custodian-runner \
+  --roles SecretsReader --service-name secrets-manager \
+  --service-instance "$SM_INSTANCE_ID"
+
+ibmcloud iam service-api-key-create custodian-runner-key custodian-runner</pre>
+
+  
+  <h2 id="s9"><span class="section-num">9.</span>Outputs and findings</h2>
+
+  <p>Each policy that matched resources writes to <code>--output-dir/&lt;policy-name&gt;/</code>:</p>
+  <ul>
+    <li><code>resources.json</code> — full resource objects that matched</li>
+    <li><code>actions.json</code> — actions taken and their results</li>
+    <li><code>metadata.json</code> — run metadata (timestamp, count, duration)</li>
+  </ul>
+
+  <h3>Persist outputs to COS</h3>
+<pre>ibmcloud cos upload-dir \
+  --bucket custodian-outputs \
+  --key-prefix "$(date +%Y/%m/%d/%H%M%S)/" \
+  --dir /tmp/c7n-out</pre>
+
+  
+  <h2 id="s10"><span class="section-num">10.</span>Operational runbook</h2>
+
+  <table>
+    <tr><th>Task</th><th>Command</th></tr>
+    <tr>
+      <td>Dry run (no actions taken)</td>
+      <td><code>custodian run --configs ... --output-dir /tmp/dry --cache-period 0 --dryrun</code></td>
+    </tr>
+    <tr>
+      <td>Inspect matched resources</td>
+      <td><code>cat /tmp/c7n-out/&lt;policy-name&gt;/resources.json | python3 -m json.tool</code></td>
+    </tr>
+    <tr>
+      <td>Find policies with matches</td>
+      <td><code>grep -r '"count": [^0]' /tmp/c7n-out/*/metadata.json</code></td>
+    </tr>
+    <tr>
+      <td>Clear stale output before fresh run</td>
+      <td><code>rm -rf /tmp/c7n-out</code></td>
+    </tr>
+    <tr>
+      <td>View Code Engine job logs</td>
+      <td><code>ibmcloud ce jobrun logs --name &lt;jobrun-name&gt;</code></td>
+    </tr>
+    <tr>
+      <td>View webhook application logs</td>
+      <td><code>ibmcloud ce application logs --name custodian-webhook --follow</code></td>
+    </tr>
+    <tr>
+      <td>Scale webhook under load</td>
+      <td><code>ibmcloud ce application update --name custodian-webhook --min-scale 2 --max-scale 10 --concurrency 20</code></td>
+    </tr>
+    <tr>
+      <td>Rotate API key</td>
+      <td>Create new key → update Secrets Manager secret → redeploy Code Engine job/app → delete old key</td>
+    </tr>
+  </table>
+
+  <div class="callout callout-warn">
+    <strong>Rate limits.</strong> Each custodian run makes multiple IBM Cloud API calls. With <code>--concurrency 20</code> on the webhook application, up to 20 runs may execute simultaneously. Keep concurrency at or below the number of parallel runs that fit within your account's API rate limit (~100 req/s per API key).
+  </div>
+
+  <footer>Made with IBM Bob</footer>
+</div>
+</body>
+</html>
